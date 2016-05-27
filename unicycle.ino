@@ -213,7 +213,7 @@ void loop
 		filtered_angle_roll = 0.98 * (filtered_angle_roll + gyroYrate * mcu_dt) + 0.02 * pitch; // X-axis
 
     	// If angle xy is greater than max degrees, stop motors
-    	if ((abs(filtered_angle_pitch) < max_pitch) && (abs(filtered_angle_roll) < max_roll))
+    	if ((abs(filtered_angle_pitch) < max_pitch) || (abs(filtered_angle_roll) < max_roll))
     	{
 			int u_output = pid(filtered_angle_pitch);
 			motor(u_output, filtered_angle_pitch);
