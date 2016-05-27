@@ -108,7 +108,7 @@ void motor(int pwm, float angle_pitch)
 		// Stop motor
 	}
 
-	analogWrite(enA, abs(pwm)); // Writes output to motor
+	analogWrite(enA, abs(pwm)); // Write output to motor
 }
 
 
@@ -186,7 +186,6 @@ void setup
 
 	Serial.begin(115200);
 
-	pinMode(gyroPin, INPUT);
 	pinMode(TN1, OUTPUT);
  	pinMode(TN2, OUTPUT);
  	pinMode(TN3, OUTPUT);
@@ -204,19 +203,20 @@ void loop
 {
 	if ((millis() - timer) > (dt * 1000)) // Run loop @ 100hz (10ms)
 	{
-       	timer = millis(); // Reset timer
+       	timer = millis(); // Reset main loop timer
 
        	get_angle(); //Get angle from MCU6050
 
        	// Calculate the angle using a Complimentary filter
        	filtered_angle_pitch = 0.98 * (filtered_angle_pitch + gyroXrate * mcu_dt) + 0.02 * roll;  // Y-axis
 		filtered_angle_roll = 0.98 * (filtered_angle_roll + gyroYrate * mcu_dt) + 0.02 * pitch; // X-axis
+		
+		int pid_output = pid(filtered_angle_pitch); // +-255
 
-    	// If angle xy is greater than max degrees, stop motors
+    	// If xy angle is greater than max degrees, stop motor
     	if ((abs(filtered_angle_pitch) < max_pitch) && (abs(filtered_angle_roll) < max_roll))
     	{
-			int u_output = pid(filtered_angle_pitch);
-			motor(u_output, filtered_angle_pitch);
+			motor(pid_output, filtered_angle_pitch); // Output to motor
 		}
 		else
 		{	
