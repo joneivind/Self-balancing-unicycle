@@ -104,7 +104,7 @@ void setup
 
 void loop 
 {
-	if ((millis() - timer) > (dt * 1000)) //100hz
+	if ((millis() - timer) > (dt * 1000)) //Run loop @ 100hz (10ms)
 	{
 	       	timer = millis(); //Reset timer
 	
