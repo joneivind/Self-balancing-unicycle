@@ -1,5 +1,5 @@
 #define pi = 3.14159265359; //Value for pi
-#define dt = (10.0/1000.0)	//100hz = 10ms
+#define dt = (10.0/1000.0) //100hz = 10ms
 
 //PID constants
 float kp = 5.0;
@@ -105,22 +105,21 @@ void loop
 {
 	if ((millis() - timer) > (dt * 1000)) //100hz
 	{
-       	timer = millis(); //Reset timer
-
-       	//Read angels from MCU
-    	float filtered_angle_pitch = analogRead(gyroPin);
-    	float filtered_angle_roll = analogRead(gyroPin);
-
-    	//If angle xy is greater than 30 degrees, stop motors
-    	if ((abs(filtered_angle_pitch) < max_pitch) && (abs(filtered_angle_roll) < max_roll))
-    	{
+	       	timer = millis(); //Reset timer
+	
+	       	//Read angels from MCU
+	    	float filtered_angle_pitch = analogRead(gyroPin);
+	    	float filtered_angle_roll = analogRead(gyroPin);
+	
+	    	//If angle xy is greater than 30 degrees, stop motors
+	    	if ((abs(filtered_angle_pitch) < max_pitch) && (abs(filtered_angle_roll) < max_roll))
+	    	{
 			int u_output = pid(filtered_angle_pitch);
 			motor(u_output, filtered_angle_pitch);
 		}
 		else
-    	{	
+	    	{	
 			motor(0, filtered_angle_pitch); //Stop motor
 		}
-
 	}
 }
