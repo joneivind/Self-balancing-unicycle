@@ -1,6 +1,6 @@
 /*
 
-Credits MCU part: http://www.pitt.edu/~mpd41/Angle.ino
+ Credits MCU part: http://www.pitt.edu/~mpd41/Angle.ino
 
  * MPU6050  UNO/NANO
  * VCC      +5v
