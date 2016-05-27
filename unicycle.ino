@@ -184,12 +184,7 @@ void setup
 	filtered_angle_roll = roll;
 	filtered_angle_pitch = pitch;
 
-
-
-
 	Serial.begin(115200);
-
-
 
 	pinMode(gyroPin, INPUT);
 	pinMode(TN1, OUTPUT);
@@ -198,8 +193,6 @@ void setup
  	pinMode(TN4, OUTPUT);
  	pinMode(ENA, OUTPUT);
 	pinMode(ENB, OUTPUT);
-
-
 
 	mcu_timer = millis(); // Initialize MCU timer
 	timer = millis(); // Initialize main loop timer
