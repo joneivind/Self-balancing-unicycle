@@ -111,7 +111,7 @@ void loop
 	    	float filtered_angle_pitch = analogRead(gyroPin);
 	    	float filtered_angle_roll = analogRead(gyroPin);
 	
-	    	//If angle xy is greater than 30 degrees, stop motors
+	    	//If angle xy is greater than max degrees, stop motors
 	    	if ((abs(filtered_angle_pitch) < max_pitch) && (abs(filtered_angle_roll) < max_roll))
 	    	{
 			int u_output = pid(filtered_angle_pitch);
