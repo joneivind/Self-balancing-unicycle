@@ -7,6 +7,7 @@ float ki = 2.0;
 float kd = 2.0;
 
 float setpoint = 0; //Initial setpoint
+
 int deadband = 2; //+-degrees of deadband around setpoint
 int max_pitch = 15; //Degrees before motor cut *SAFETY FUNCTION*
 int max_roll = 15; //Degrees before motor cut *SAFETY FUNCTION*
