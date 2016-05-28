@@ -18,10 +18,10 @@
   * GND   GND
   * RPWM    D5      Forward pwm input
   * LPWM    D6      Reverse pwm input
-  * R_EN    D7      Forward drive enable input
-  * L_EN    D8      Reverse drive enable input
-  * R_IS	-		Current alarm, not used
-  * L_IS	-		Current alarm, not used
+  * R_EN    D7      Forward drive enable input, can be bridged with L_EN
+  * L_EN    D8      Reverse drive enable input, can be bridged with R_EN
+  * R_IS	-	Current alarm, not used
+  * L_IS	-	Current alarm, not used
   * B+    Battery+
   * B-    Battery-
   * M+    Motor+
