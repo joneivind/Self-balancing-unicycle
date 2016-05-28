@@ -77,7 +77,7 @@ int L_EN = 8;
 
 // MCU variables
 int MPU_addr = 0x68;
-int mcu_prev_dt; // MCU loop time
+int mcu_prev_dt; // MCU previous loop time
 float AcX,AcY,AcZ,Tmp,GyX,GyY,GyZ; // The raw data from the MPU6050.
 float roll = 0.0;
 float pitch = 0.0;
@@ -85,7 +85,7 @@ float gyroXangle = 0.0;
 float gyroYangle = 0.0;
 float filtered_angle_pitch = 0.0;
 float filtered_angle_roll = 0.0;
-float mcu_dt = 0.0;
+float mcu_dt = 0.0; // MCU loop time
 
 
 
