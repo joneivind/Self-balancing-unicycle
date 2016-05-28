@@ -138,6 +138,8 @@ void motor(int pwm)
     // Stop motor
     digitalWrite(R_EN, LOW);
     digitalWrite(L_EN, LOW);
+    digitalWrite(RPWM, LOW);
+    digitalWrite(LPWM, LOW);
   }
 }
 
