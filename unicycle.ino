@@ -16,10 +16,12 @@
   * Motor Driver BTS7960
   * VCC   +5v
   * GND   GND
-  * RPWM    D5
-  * LPWM    D6
-  * R_EN    D7
-  * L_EN    D8
+  * RPWM    D5      Forward pwm input
+  * LPWM    D6      Reverse pwm input
+  * R_EN    D7      Forward drive enable input
+  * L_EN    D8      Reverse drive enable input
+  * R_IS	-		Current alarm, not used
+  * L_IS	-		Current alarm, not used
   * B+    Battery+
   * B-    Battery-
   * M+    Motor+
@@ -69,10 +71,10 @@ int lastTime = millis();
 int battery_voltage_input = A3;
 
 // Motor Driver BTS7960 pins
-int RPWM = 5;
-int LPWM = 6;
-int R_EN = 7;
-int L_EN = 8;
+int RPWM = 5; // Forward pwm input
+int LPWM = 6; // Reverse pwm input
+int R_EN = 7; // Forward drive enable input
+int L_EN = 8; // Reverse drive enable input
 
 // MCU variables
 float degconvert = 57.2957786; // There are 57 degrees in a radian
@@ -134,8 +136,8 @@ void motor(int pwm)
   else
   { 
     // Stop motor
-    digitalWrite(RPWM, 0);
-    digitalWrite(LPWM, 0);
+    digitalWrite(R_EN, LOW);
+    digitalWrite(L_EN, LOW);
   }
 }
 
@@ -250,33 +252,37 @@ void loop()
 { 
   if ((millis() - main_loop_timer) > (dt * 1000)) // Run loop @ 100hz (10ms)
   {
-        main_loop_timer = millis(); // Reset main loop timer
-        
-        //Read battery voltage and convert to 0-100%
-    int battery_voltage = map(analogRead(battery_voltage_input), 0, 1023, 0, 100);
-
-        get_angle(); //Get angle from MCU6050
-
-        // Calculate the angle using a Complimentary filter
-        filtered_angle_roll = 0.98 * (filtered_angle_roll + gyroXrate * mcu_dt) + 0.02 * roll;  // X-axis
-    filtered_angle_pitch = 0.98 * (filtered_angle_pitch + gyroYrate * mcu_dt) + 0.02 * pitch; // Y-axis
+    main_loop_timer = millis(); // Reset main loop timer
     
+
+    // **** Read battery voltage input and convert to 0-100% ****
+	int battery_voltage = map(analogRead(battery_voltage_input), 0, 1023, 0, 100);
+
+
+    get_angle(); //Get angle from MCU6050
+
+    // Calculate the angle using a Complimentary filter
+    filtered_angle_roll = 0.98 * (filtered_angle_roll + gyroXrate * mcu_dt) + 0.02 * roll;  // X-axis
+	filtered_angle_pitch = 0.98 * (filtered_angle_pitch + gyroYrate * mcu_dt) + 0.02 * pitch; // Y-axis
+
     //Calculate PID output
     int pid_output = pid(filtered_angle_pitch); // +-255
 
-      // If xy angle is greater than max degrees, stop motor *SAFETY*
-      if ((abs(filtered_angle_pitch) < max_pitch) && (abs(filtered_angle_roll) < max_roll))
-      {
-      digitalWrite(R_EN,HIGH);
-      digitalWrite(L_EN,HIGH);
-      motor(pid_output); // Write PID output to motor
+
+	// If xy angle is greater than max degrees, stop motor *SAFETY*
+	if ((abs(filtered_angle_pitch) < max_pitch) && (abs(filtered_angle_roll) < max_roll))
+	{
+		// Enable and write PID output to motor
+		digitalWrite(R_EN,HIGH);
+		digitalWrite(L_EN,HIGH);
+		motor(pid_output); 
     }
     else
     { 
-      // Stop motor
-      digitalWrite(R_EN,LOW);
-      digitalWrite(L_EN,LOW);
-      motor(0);
+		// Stop motor
+		digitalWrite(R_EN,LOW);
+		digitalWrite(L_EN,LOW);
+		motor(0);
     }
   }
 }
