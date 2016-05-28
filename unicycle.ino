@@ -176,7 +176,6 @@ void get_angle()
 // ***** Main setup *****
 void setup 
 {	
-
 	// ***** MPU6050 setup *****
 	Wire.begin();
 	#if ARDUINO >= 157
@@ -216,11 +215,12 @@ void setup
 	filtered_angle_roll = roll;
 	filtered_angle_pitch = pitch;
 
+
 	// ***** Read battery voltage *****
 	pinMode(battery_voltage_input, INPUT);
 
-	// ***** Motorcontroller setup *****
 
+	// ***** Motorcontroller setup *****
 	pinMode(RPWM, OUTPUT); // PWM output right channel
  	pinMode(LPWM, OUTPUT); // PWM output left channel
  	pinMode(R_EN, OUTPUT); // Enable right channel
@@ -234,13 +234,11 @@ void setup
 
 
 	// ***** Begin serial port *****
-
 	Serial.begin(115200);
 
 
 
 	// ***** Initialize timer *****
-
 	mcu_prev_dt = millis(); // Initialize MCU timer
 	main_loop_timer = millis(); // Initialize main loop timer
 }
