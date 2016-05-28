@@ -24,6 +24,9 @@
 	* B-		Battery-
 	* M+		Motor+
 	* M-		Motor-
+	
+	* Voltage divider 0-24v -> 0-5v ( R1: 380k, R2: 100k)
+	* Vout		A3
 
 	***** Connections *****
 
@@ -66,8 +69,8 @@ int output = 0.0;	// PID output
 int timer = millis();
 int lastTime = millis();
 
-// Input output pins
-int gyroPin = 4;
+// Input voltage divider
+int battery_voltage_input = A3;
 
 // Motor Driver BTS7960 pins
 int RPWM = 5;
@@ -213,7 +216,8 @@ void setup
 	filtered_angle_roll = roll;
 	filtered_angle_pitch = pitch;
 
-
+	// ***** Read battery voltage *****
+	pinMode(battery_voltage_input, INPUT);
 
 	// ***** Motorcontroller setup *****
 
@@ -245,34 +249,36 @@ void setup
 
 // ***** Main loop *****
 void loop 
-{
+{	
 	if ((millis() - main_loop_timer) > (dt * 1000)) // Run loop @ 100hz (10ms)
 	{
        	main_loop_timer = millis(); // Reset main loop timer
-
+       	
+       	//Read battery voltage and convert to 0-100%
+		int battery_voltage = map(analogRead(battery_voltage_input), 0, 1023, 0, 100);
 
        	get_angle(); //Get angle from MCU6050
-
 
        	// Calculate the angle using a Complimentary filter
        	filtered_angle_roll = 0.98 * (filtered_angle_roll + gyroXrate * mcu_dt) + 0.02 * roll;  // X-axis
 		filtered_angle_pitch = 0.98 * (filtered_angle_pitch + gyroYrate * mcu_dt) + 0.02 * pitch; // Y-axis
 		
+		//Calculate PID output
 		int pid_output = pid(filtered_angle_pitch); // +-255
 
-
-    	// If xy angle is greater than max degrees, stop motor
+    	// If xy angle is greater than max degrees, stop motor *SAFETY*
     	if ((abs(filtered_angle_pitch) < max_pitch) && (abs(filtered_angle_roll) < max_roll))
     	{
-       		digitalWrite(R_EN,HIGH);
-  			digitalWrite(L_EN,HIGH);
-			motor(pid_output); // Output to motor
+			digitalWrite(R_EN,HIGH);
+			digitalWrite(L_EN,HIGH);
+			motor(pid_output); // Write PID output to motor
 		}
 		else
 		{	
+			// Stop motor
 			digitalWrite(R_EN,LOW);
-  			digitalWrite(L_EN,LOW);
-			motor(0); // Stop motor
+			digitalWrite(L_EN,LOW);
+			motor(0);
 		}
 	}
 }
