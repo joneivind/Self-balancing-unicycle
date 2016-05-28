@@ -208,8 +208,8 @@ void loop
        	get_angle(); //Get angle from MCU6050
 
        	// Calculate the angle using a Complimentary filter
-       	filtered_angle_pitch = 0.98 * (filtered_angle_pitch + gyroXrate * mcu_dt) + 0.02 * roll;  // Y-axis
-		filtered_angle_roll = 0.98 * (filtered_angle_roll + gyroYrate * mcu_dt) + 0.02 * pitch; // X-axis
+       	filtered_angle_roll = 0.98 * (filtered_angle_roll + gyroXrate * mcu_dt) + 0.02 * roll;  // X-axis
+		filtered_angle_pitch = 0.98 * (filtered_angle_pitch + gyroYrate * mcu_dt) + 0.02 * pitch; // Y-axis
 		
 		int pid_output = pid(filtered_angle_pitch); // +-255
 
