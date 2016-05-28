@@ -18,8 +18,8 @@
 	* GND		GND
 	* RPWM		D5
 	* LPWM		D6
-	* L_EN		D7
-	* R_EN		D8
+	* R_EN		D7
+	* L_EN		D8
 	* B+		Battery+
 	* B-		Battery-
 	* M+		Motor+
