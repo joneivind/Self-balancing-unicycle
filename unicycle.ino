@@ -92,14 +92,14 @@ float pid(float measured_angle)
 
 
 // Motor output
-void motor(int pwm, float angle_pitch)
+void motor(int pwm)
 {
 	// Set direction
-	if (angle_pitch > (setpoint + deadband))
+	if (pwm > (0 + deadband))
 	{
 		// Forwards
 	}
-	else if (angle_pitch < (setpoint - deadband))
+	else if (pwm < (0 - deadband))
 	{
 		// Backwards
 	}
@@ -216,11 +216,11 @@ void loop
     	// If xy angle is greater than max degrees, stop motor
     	if ((abs(filtered_angle_pitch) < max_pitch) && (abs(filtered_angle_roll) < max_roll))
     	{
-			motor(pid_output, filtered_angle_pitch); // Output to motor
+			motor(pid_output); // Output to motor
 		}
 		else
 		{	
-			motor(0, filtered_angle_pitch); // Stop motor
+			motor(0); // Stop motor
 		}
 	}
 }
