@@ -1,12 +1,34 @@
 /*
 
- Credits MCU part: http://www.pitt.edu/~mpd41/Angle.ino
+	***************************************
+	******* Self balancing unicycle *******
+	***************************************
 
- * MPU6050  UNO/NANO
- * VCC      +5v
- * GND      GND
- * SCL      A5
- * SDA      A4
+
+	***** Connections *****
+
+	* MPU6050  UNO/NANO
+	* VCC      +5v
+	* GND      GND
+	* SCL      A5
+	* SDA      A4
+	
+	* Motor Driver BTS7960
+	* VCC		+5v
+	* GND		GND
+	* RPWM		D5
+	* LPWM		D6
+	* L_EN		D7
+	* R_EN		D8
+	* B+		Battery+
+	* B-		Battery-
+	* M+		Motor+
+	* M-		Motor-
+
+	***** Connections *****
+
+
+	Credits MCU part: http://www.pitt.edu/~mpd41/Angle.ino
 
 */
 
@@ -47,16 +69,15 @@ int lastTime = millis();
 // Input output pins
 int gyroPin = 4;
 
-int TN1 = 4;
-int TN2 = 3;
-int ENA = 5;
-int TN3 = 8;
-int TN4 = 7;
-int ENB = 6;
+// Motor Driver BTS7960 pins
+int RPWM = 5;
+int LPWM = 6;
+int R_EN = 7;
+int L_EN = 8;
 
 // MCU variables
 int MPU_addr = 0x68;
-int mcu_timer; // MCU loop time
+int mcu_prev_dt; // MCU loop time
 float AcX,AcY,AcZ,Tmp,GyX,GyY,GyZ; // The raw data from the MPU6050.
 float roll = 0.0;
 float pitch = 0.0;
@@ -67,7 +88,8 @@ float filtered_angle_roll = 0.0;
 float mcu_dt = 0.0;
 
 
-// PID function -> Calculate output from angle input
+
+// ***** PID function *****
 float pid(float measured_angle)
 {
 	float delta_t = millis() - lastTime; // Delta time
@@ -91,28 +113,32 @@ float pid(float measured_angle)
 }
 
 
-// Motor output
+
+// ***** Motor output *****
 void motor(int pwm)
 {
 	// Set direction
 	if (pwm > (0 + deadband))
-	{
-		// Forwards
+	{	
+		// Drive forward
+		analogWrite(RPWM, abs(pwm)); 
 	}
 	else if (pwm < (0 - deadband))
-	{
-		// Backwards
+	{	
+		// Drive backward
+		analogWrite(LPWM, abs(pwm)); 
 	}
 	else
-	{
+	{	
 		// Stop motor
+		digitalWrite(RPWM, 0);
+		digitalWrite(LPWM, 0);
 	}
-
-	analogWrite(enA, abs(pwm)); // Write output to motor
 }
 
 
 
+// ***** Get angle from MPU6050 gyro/acc *****
 void get_angle() 
 {	
 	// Collect raw data from the sensor.
@@ -128,8 +154,8 @@ void get_angle()
 	GyY=Wire.read()<<8|Wire.read();  // 0x45 (GYRO_YOUT_H) & 0x46 (GYRO_YOUT_L)
 	GyZ=Wire.read()<<8|Wire.read();  // 0x47 (GYRO_ZOUT_H) & 0x48 (GYRO_ZOUT_L)
 
-	mcu_dt = (float)(millis() - mcu_timer) * 1000; //This line does three things: 1) stops the timer, 2)converts the timer's output to seconds from microseconds, 3)casts the value as a double saved to "dt".
-	mcu_timer = millis(); //start the timer again so that we can calculate the next dt.
+	mcu_dt = (float)(millis() - mcu_prev_dt) * 1000; //This line does three things: 1) stops the timer, 2)converts the timer's output to seconds from microseconds, 3)casts the value as a double saved to "dt".
+	mcu_prev_dt = millis(); //start the timer again so that we can calculate the next dt.
 
 	//the next two lines calculate the orientation of the accelerometer relative to the earth and convert the output of atan2 from radians to degrees
 	//We will use this data to correct any cumulative errors in the orientation that the gyroscope develops.
@@ -144,8 +170,11 @@ void get_angle()
 
 
 
+// ***** Main setup *****
 void setup 
-{
+{	
+
+	// ***** MPU6050 setup *****
 	Wire.begin();
 	#if ARDUINO >= 157
 	Wire.setClock(400000UL); // Set I2C frequency to 400kHz
@@ -184,28 +213,46 @@ void setup
 	filtered_angle_roll = roll;
 	filtered_angle_pitch = pitch;
 
+
+
+	// ***** Motorcontroller setup *****
+
+	pinMode(RPWM, OUTPUT); // PWM output right channel
+ 	pinMode(LPWM, OUTPUT); // PWM output left channel
+ 	pinMode(R_EN, OUTPUT); // Enable right channel
+ 	pinMode(L_EN, OUTPUT); // Enable left channel
+
+ 	digitalWrite(RPWM, LOW); // Disable motor @ start
+ 	digitalWrite(LPWM, LOW);
+ 	digitalWrite(R_EN, LOW);
+ 	digitalWrite(L_EN, LOW);
+
+
+
+	// ***** Begin serial port *****
+
 	Serial.begin(115200);
 
-	pinMode(TN1, OUTPUT);
- 	pinMode(TN2, OUTPUT);
- 	pinMode(TN3, OUTPUT);
- 	pinMode(TN4, OUTPUT);
- 	pinMode(ENA, OUTPUT);
-	pinMode(ENB, OUTPUT);
 
-	mcu_timer = millis(); // Initialize MCU timer
-	timer = millis(); // Initialize main loop timer
+
+	// ***** Initialize timer *****
+
+	mcu_prev_dt = millis(); // Initialize MCU timer
+	main_loop_timer = millis(); // Initialize main loop timer
 }
 
 
 
+// ***** Main loop *****
 void loop 
 {
-	if ((millis() - timer) > (dt * 1000)) // Run loop @ 100hz (10ms)
+	if ((millis() - main_loop_timer) > (dt * 1000)) // Run loop @ 100hz (10ms)
 	{
-       	timer = millis(); // Reset main loop timer
+       	main_loop_timer = millis(); // Reset main loop timer
+
 
        	get_angle(); //Get angle from MCU6050
+
 
        	// Calculate the angle using a Complimentary filter
        	filtered_angle_roll = 0.98 * (filtered_angle_roll + gyroXrate * mcu_dt) + 0.02 * roll;  // X-axis
@@ -213,13 +260,18 @@ void loop
 		
 		int pid_output = pid(filtered_angle_pitch); // +-255
 
+
     	// If xy angle is greater than max degrees, stop motor
     	if ((abs(filtered_angle_pitch) < max_pitch) && (abs(filtered_angle_roll) < max_roll))
     	{
+       		digitalWrite(R_EN,HIGH);
+  			digitalWrite(L_EN,HIGH);
 			motor(pid_output); // Output to motor
 		}
 		else
 		{	
+			digitalWrite(R_EN,LOW);
+  			digitalWrite(L_EN,LOW);
 			motor(0); // Stop motor
 		}
 	}
