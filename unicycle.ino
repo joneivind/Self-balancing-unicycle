@@ -3,6 +3,9 @@
   ***************************************
   ******* Self balancing unicycle *******
   ***************************************
+  
+  Need to download these libs in order to work:
+  i2c -> http://diyhacking.com/projects/I2Cdev.zip
 
 
   ***** Connections *****
