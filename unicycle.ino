@@ -12,6 +12,7 @@
   * GND      GND
   * SCL      A5
   * SDA      A4
+  * Int	     D2
   
   * Motor Driver BTS7960
   * VCC   +5v
