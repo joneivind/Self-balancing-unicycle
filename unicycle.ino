@@ -44,9 +44,11 @@
 #include <Wire.h>
 
 // PID constants
-float kp = 5.0;
-float ki = 2.0;
-float kd = 2.0;
+float kp = 0.8; //Value between 0 <-> 0.8
+float ki = 1.0; 
+float kd = 0.5; //Value between 0 <-> 0.5
+
+bool ki_enable = FALSE; //Enable integral regulator if true, disable if false
 
 float setpoint = 0.0; // Initial setpoint
 
@@ -99,15 +101,20 @@ float mcu_dt = 0.0; // MCU loop time
 
 
 // ***** PID function *****
-float pid(float measured_angle)
+float get_pid(float measured_angle)
 {
   float delta_t = millis() - lastTime; // Delta time
   lastTime = millis(); // Reset timer
 
-  error = setpoint - measured_angle; // Calculate error
+  error = setpoint - measured_angle; // Calculate error, e=SP-Y
 
   p_term = kp * error;  // Propotional
-  i_term += (ki * error * delta_t); // Integral
+  
+  if (ki_enable) {  // Integral
+  	i_term += (ki * error * delta_t) 
+  }
+  else i_term = 0; //Disabled integral regulator
+  
   d_term = kd * ((error - last_error) / delta_t); // Derivative
 
   output = p_term + i_term + d_term; // Calculate output
@@ -256,14 +263,12 @@ void setup()
 // ***** Main loop *****
 void loop()
 { 
-  if ((millis() - main_loop_timer) > (dt * 1000)) // Run loop @ 100hz (10ms)
+  if ((millis() - main_loop_timer) > (dt * 1000)) // Run loop @ 100hz (1/100hz = 10ms)
   {
     main_loop_timer = millis(); // Reset main loop timer
     
-
     // **** Read battery voltage input and convert to 0-100% ****
 	int battery_voltage = map(analogRead(battery_voltage_input), 0, 1023, 0, 100);
-
 
     get_angle(); //Get angle from MCU6050
 
@@ -272,23 +277,20 @@ void loop()
 	filtered_angle_pitch = 0.98 * (filtered_angle_pitch + gyroYrate * mcu_dt) + 0.02 * pitch; // Y-axis
 
     //Calculate PID output
-    int pid_output = pid(filtered_angle_pitch); // +-255
-
+    int pid_output = get_pid(filtered_angle_pitch); // +-255
 
 	// If xy angle is greater than max degrees, stop motor *SAFETY*
-	if ((abs(filtered_angle_pitch) < max_pitch) && (abs(filtered_angle_roll) < max_roll))
+	if ((abs(filtered_angle_pitch) > max_pitch) && (abs(filtered_angle_roll) > max_roll))
 	{
-		// Enable and write PID output to motor
-		digitalWrite(R_EN,HIGH);
-		digitalWrite(L_EN,HIGH);
-		motor(pid_output); 
+		digitalWrite(R_EN,LOW); // Stop motor
+		digitalWrite(L_EN,LOW);
+		motor(0);
     }
     else
     { 
-		// Stop motor
-		digitalWrite(R_EN,LOW);
-		digitalWrite(L_EN,LOW);
-		motor(0);
+		digitalWrite(R_EN,HIGH); // Enable and write PID output to motor
+		digitalWrite(L_EN,HIGH);
+		motor(pid_output);
     }
   }
 }
