@@ -110,8 +110,8 @@ float get_pid(float measured_angle)
 
   p_term = kp * error;  // Propotional
   
-  if (ki_enable) {  // Integral
-  	i_term += (ki * error * delta_t) 
+  if (ki_enable == TRUE) {  // Integral
+  	i_term += (ki * error * delta_t);
   }
   else i_term = 0; //Disabled integral regulator
   
