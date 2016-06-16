@@ -5,56 +5,57 @@
   ***************************************
   
   Need to download these libs in order to work:
-  i2c -> http://diyhacking.com/projects/I2Cdev.zip
-
+  i2c -> http://diyhacking.com/projects/I2Cdev.zip or regular wire.h lib
+  
 
   ***** Connections *****
 
-  * MPU6050  UNO/NANO
-  * VCC      +5v
-  * GND      GND
-  * SCL      A5
-  * SDA      A4
-  * Int	     D2
+  * MPU6050  UNO/NANO  MEGA2560
+  * VCC      +5v  +5v
+  * GND      GND  GND
+  * SCL      A5   C21
+  * SDA      A4   C20
+  * Int      D2   D2
   
-  * Motor Driver BTS7960
+  * Motor Driver BTS7960 // UNO/NANO/MEGA2560
   * VCC   +5v
   * GND   GND
   * RPWM    D5      Forward pwm input
   * LPWM    D6      Reverse pwm input
   * R_EN    D7      Forward drive enable input, can be bridged with L_EN
   * L_EN    D8      Reverse drive enable input, can be bridged with R_EN
-  * R_IS	-	Current alarm, not used
-  * L_IS	-	Current alarm, not used
+  * R_IS  - Current alarm, not used
+  * L_IS  - Current alarm, not used
   * B+    Battery+
   * B-    Battery-
   * M+    Motor+
   * M-    Motor-
   
   * Voltage divider 0-24v -> 0-5v ( R1: 380k, R2: 100k)
-  * Vout    A3
+  * Vout    A3    (Vout + from battery)
 
-  ***** Connections *****
+  ***** Connections end *****
 
 
-  Credits MCU part: http://www.pitt.edu/~mpd41/Angle.ino
+  Credits MPU6050 part: http://www.pitt.edu/~mpd41/Angle.ino
 
 */
 
 #include <Wire.h>
 
 // PID constants
-float kp = 0.8; //Value between 0 <-> 0.8
+float kp = 1.8; //Value between 0 <-> 0.8
 float ki = 1.0; 
 float kd = 0.5; //Value between 0 <-> 0.5
 
-bool ki_enable = FALSE; //Enable integral regulator if true, disable if false
+bool ki_enable = false; //Enables integral regulator if true, disabled if false
 
-float setpoint = 0.0; // Initial setpoint
+float setpoint = 90.0; // Initial degree setpoint
 
-int deadband = 2; // +-degrees of deadband around setpoint
-int max_pitch = 15; // Degrees before motor cut *SAFETY FUNCTION*
-int max_roll = 15; // Degrees before motor cut *SAFETY FUNCTION*
+int deadband = 5; // +-degrees of deadband around setpoint
+int max_roll = 40; // Degrees from setpoint before motor cut *SAFETY FUNCTION*
+
+bool fall_detection_trigger = false;
 
 // PID variables
 int Umax = 255;  // Max output
@@ -82,11 +83,11 @@ int LPWM = 6; // Reverse pwm input
 int R_EN = 7; // Forward drive enable input
 int L_EN = 8; // Reverse drive enable input
 
-// MCU variables
+// MPU6050 (Gyro/acc) variables
 float degconvert = 57.2957786; // There are 57 degrees in a radian
 float dt = (10.0/1000.0); // 100hz = 10ms
 int MPU_addr = 0x68;
-int mcu_prev_dt; // MCU previous loop time
+int mpu_prev_dt; // MPU previous loop time
 float AcX,AcY,AcZ,Tmp,GyX,GyY,GyZ; // The raw data from the MPU6050.
 float roll = 0.0;
 float pitch = 0.0;
@@ -96,7 +97,7 @@ float gyroXrate = 0.0;
 float gyroYrate = 0.0;
 float filtered_angle_pitch = 0.0;
 float filtered_angle_roll = 0.0;
-float mcu_dt = 0.0; // MCU loop time
+float mpu_dt = 0.0; // MPU loop time
 
 
 
@@ -110,18 +111,22 @@ float get_pid(float measured_angle)
 
   p_term = kp * error;  // Propotional
   
-  if (ki_enable == TRUE) {  // Integral
-  	i_term += (ki * error * delta_t);
+  if (ki_enable == true) {  // Integral
+    i_term += (ki * error * delta_t);
   }
-  else i_term = 0; //Disabled integral regulator
+  else i_term = 0; //Disable integral regulator
   
   d_term = kd * ((error - last_error) / delta_t); // Derivative
 
   output = p_term + i_term + d_term; // Calculate output
 
   // Limit output
-  if (output > Umax) output = Umax;
-  else if (output < Umin) output = Umin;
+  if (output > Umax) {
+    output = Umax;
+  }
+  else if (output < Umin) {
+    output = Umin;
+  }
   
   last_error = error; // Remember error for next time
 
@@ -131,27 +136,21 @@ float get_pid(float measured_angle)
 
 
 // ***** Motor output *****
-void motor(int pwm)
+void motor(int pwm, float angle)
 {
   // Set direction
-  if (pwm > (0 + deadband))
+  if (angle > (setpoint + deadband))
   { 
     // Drive forward
     analogWrite(RPWM, abs(pwm)); 
   }
-  else if (pwm < (0 - deadband))
+  else if (angle < (setpoint - deadband))
   { 
     // Drive backward
     analogWrite(LPWM, abs(pwm)); 
   }
-  else
-  { 
-    // Stop motor
-    digitalWrite(R_EN, LOW);
-    digitalWrite(L_EN, LOW);
-    digitalWrite(RPWM, LOW);
-    digitalWrite(LPWM, LOW);
-  }
+  
+    Serial.println(pwm);
 }
 
 
@@ -172,18 +171,24 @@ void get_angle()
   GyY=Wire.read()<<8|Wire.read();  // 0x45 (GYRO_YOUT_H) & 0x46 (GYRO_YOUT_L)
   GyZ=Wire.read()<<8|Wire.read();  // 0x47 (GYRO_ZOUT_H) & 0x48 (GYRO_ZOUT_L)
 
-  mcu_dt = (float)(millis() - mcu_prev_dt) * 1000; //This line does three things: 1) stops the timer, 2)converts the timer's output to seconds from microseconds, 3)casts the value as a double saved to "dt".
-  mcu_prev_dt = millis(); //start the timer again so that we can calculate the next dt.
+  mpu_dt = (float)(millis() - mpu_prev_dt) / 1000; //This line does three things: 1) stops the timer, 2)converts the timer's output to seconds from microseconds, 3)casts the value as a double saved to "dt".
+  mpu_prev_dt = millis(); //start the timer again so that we can calculate the next dt.
 
   //the next two lines calculate the orientation of the accelerometer relative to the earth and convert the output of atan2 from radians to degrees
   //We will use this data to correct any cumulative errors in the orientation that the gyroscope develops.
   roll = atan2(AcY, AcZ)*degconvert;
-  pitch = atan2(-AcX, AcZ)*degconvert;
+  //pitch = atan2(-AcX, AcZ)*degconvert;
 
+  /*
   //The gyroscope outputs angular velocities.  To convert these velocities from the raw data to deg/second, divide by 131.  
   //Notice, we're dividing by a double "131.0" instead of the int 131.
   gyroXrate = GyX/131.0;
   gyroYrate = GyY/131.0;
+  
+   // Calculate the angle using a Complimentary filter
+  filtered_angle_roll = 0.99 * (filtered_angle_roll + gyroXrate * mpu_dt) + 0.01 * roll;  // X-axis
+  filtered_angle_pitch = 0.99 * (filtered_angle_pitch + gyroYrate * mpu_dt) + 0.01 * pitch; // Y-axis
+  */
 }
 
 
@@ -222,14 +227,15 @@ void setup()
 
   //2) calculate pitch and roll
   roll = atan2(AcY, AcZ)*degconvert;
-  pitch = atan2(-AcX, AcZ)*degconvert;
+  //pitch = atan2(-AcX, AcZ)*degconvert;
 
+  /*
   //3) set the starting angle to this pitch and roll
   gyroXangle = roll;
   gyroYangle = pitch;
   filtered_angle_roll = roll;
   filtered_angle_pitch = pitch;
-
+  */
 
   // ***** Read battery voltage *****
   pinMode(battery_voltage_input, INPUT);
@@ -254,7 +260,7 @@ void setup()
 
 
   // ***** Initialize timer *****
-  mcu_prev_dt = millis(); // Initialize MCU timer
+  mpu_prev_dt = millis(); // Initialize MPU timer
   main_loop_timer = millis(); // Initialize main loop timer
 }
 
@@ -268,29 +274,27 @@ void loop()
     main_loop_timer = millis(); // Reset main loop timer
     
     // **** Read battery voltage input and convert to 0-100% ****
-	int battery_voltage = map(analogRead(battery_voltage_input), 0, 1023, 0, 100);
+    int battery_voltage = map(analogRead(battery_voltage_input), 0, 1023, 0, 100);
 
-    get_angle(); //Get angle from MCU6050
-
-    // Calculate the angle using a Complimentary filter
-    filtered_angle_roll = 0.98 * (filtered_angle_roll + gyroXrate * mcu_dt) + 0.02 * roll;  // X-axis
-	filtered_angle_pitch = 0.98 * (filtered_angle_pitch + gyroYrate * mcu_dt) + 0.02 * pitch; // Y-axis
+    get_angle(); //Get angle from MPU6050
 
     //Calculate PID output
-    int pid_output = get_pid(filtered_angle_pitch); // +-255
+    int pid_output = get_pid(roll); // +-255
 
-	// If xy angle is greater than max degrees, stop motor *SAFETY*
-	if ((abs(filtered_angle_pitch) > max_pitch) && (abs(filtered_angle_roll) > max_roll))
-	{
-		digitalWrite(R_EN,LOW); // Stop motor
-		digitalWrite(L_EN,LOW);
-		motor(0);
+    // *SAFETY* If xy angle is greater than max degrees, stop motor *SAFETY*
+    if (roll > (setpoint + max_roll) || roll < (setpoint - max_roll) || fall_detection_trigger)
+    {
+      digitalWrite(R_EN,LOW); // Stop motor
+      digitalWrite(L_EN,LOW);
+      motor(0, roll);
+      fall_detection_trigger = true; // Must reset to continue
+      Serial.println("fall_detection_trigger");
     }
     else
     { 
-		digitalWrite(R_EN,HIGH); // Enable and write PID output to motor
-		digitalWrite(L_EN,HIGH);
-		motor(pid_output);
+      digitalWrite(R_EN,HIGH); // Enable and write PID output to motor
+      digitalWrite(L_EN,HIGH);
+      motor(pid_output, roll);
     }
   }
 }
