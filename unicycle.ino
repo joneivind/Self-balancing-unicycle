@@ -44,7 +44,7 @@
 #include <Wire.h>
 
 // PID constants
-float kp = 1.8; //Value between 0 <-> 0.8
+float kp = 1.5; //Value between 0 <-> 0.8
 float ki = 1.0; 
 float kd = 0.5; //Value between 0 <-> 0.5
 
@@ -102,12 +102,12 @@ float mpu_dt = 0.0; // MPU loop time
 
 
 // ***** PID function *****
-float get_pid(float measured_angle)
+float get_pid(float angle)
 {
   float delta_t = millis() - lastTime; // Delta time
   lastTime = millis(); // Reset timer
 
-  error = setpoint - measured_angle; // Calculate error, e=SP-Y
+  error = setpoint - angle; // Calculate error, e=SP-Y
 
   p_term = kp * error;  // Propotional
   
@@ -141,16 +141,14 @@ void motor(int pwm, float angle)
   // Set direction
   if (angle > (setpoint + deadband))
   { 
-    // Drive forward
-    analogWrite(RPWM, abs(pwm)); 
-  }
-  else if (angle < (setpoint - deadband))
-  { 
     // Drive backward
     analogWrite(LPWM, abs(pwm)); 
   }
-  
-    Serial.println(pwm);
+  else if (angle < (setpoint - deadband))
+  { 
+    // Drive forward
+    analogWrite(RPWM, abs(pwm)); 
+  }
 }
 
 
@@ -179,16 +177,6 @@ void get_angle()
   roll = atan2(AcY, AcZ)*degconvert;
   //pitch = atan2(-AcX, AcZ)*degconvert;
 
-  /*
-  //The gyroscope outputs angular velocities.  To convert these velocities from the raw data to deg/second, divide by 131.  
-  //Notice, we're dividing by a double "131.0" instead of the int 131.
-  gyroXrate = GyX/131.0;
-  gyroYrate = GyY/131.0;
-  
-   // Calculate the angle using a Complimentary filter
-  filtered_angle_roll = 0.99 * (filtered_angle_roll + gyroXrate * mpu_dt) + 0.01 * roll;  // X-axis
-  filtered_angle_pitch = 0.99 * (filtered_angle_pitch + gyroYrate * mpu_dt) + 0.01 * pitch; // Y-axis
-  */
 }
 
 
@@ -229,13 +217,7 @@ void setup()
   roll = atan2(AcY, AcZ)*degconvert;
   //pitch = atan2(-AcX, AcZ)*degconvert;
 
-  /*
-  //3) set the starting angle to this pitch and roll
-  gyroXangle = roll;
-  gyroYangle = pitch;
-  filtered_angle_roll = roll;
-  filtered_angle_pitch = pitch;
-  */
+
 
   // ***** Read battery voltage *****
   pinMode(battery_voltage_input, INPUT);
@@ -272,27 +254,31 @@ void loop()
   if ((millis() - main_loop_timer) > (dt * 1000)) // Run loop @ 100hz (1/100hz = 10ms)
   {
     main_loop_timer = millis(); // Reset main loop timer
+
     
-    // **** Read battery voltage input and convert to 0-100% ****
+    // Read battery voltage input and convert to 0-100%
     int battery_voltage = map(analogRead(battery_voltage_input), 0, 1023, 0, 100);
 
-    get_angle(); //Get angle from MPU6050
-
+    //Get angle from MPU6050
+    get_angle();
+  
     //Calculate PID output
-    int pid_output = get_pid(roll); // +-255
+    int pid_output = get_pid(abs(roll)); // +-255
 
-    // *SAFETY* If xy angle is greater than max degrees, stop motor *SAFETY*
+
+    Serial.println(pid_output);
+
+    // If roll angle is greater than max roll, stop motor
     if (roll > (setpoint + max_roll) || roll < (setpoint - max_roll) || fall_detection_trigger)
     {
-      digitalWrite(R_EN,LOW); // Stop motor
+      digitalWrite(R_EN,LOW);
       digitalWrite(L_EN,LOW);
       motor(0, roll);
-      fall_detection_trigger = true; // Must reset to continue
-      Serial.println("fall_detection_trigger");
+      fall_detection_trigger = true; // Fall detected
     }
     else
     { 
-      digitalWrite(R_EN,HIGH); // Enable and write PID output to motor
+      digitalWrite(R_EN,HIGH); // Enable and write PID output value to motor
       digitalWrite(L_EN,HIGH);
       motor(pid_output, roll);
     }
