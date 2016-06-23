@@ -258,7 +258,7 @@ void setup()
 
 
 
-  // ***** Read battery voltage *****
+  // ***** Battery voltage *****
   pinMode(battery_voltage_input, INPUT);
 
 
