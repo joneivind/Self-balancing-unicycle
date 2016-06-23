@@ -3,39 +3,47 @@
   ***************************************
   ******* Self balancing unicycle *******
   ***************************************
-  
-  Need to download these libs in order to work:
-  i2c -> http://diyhacking.com/projects/I2Cdev.zip or regular wire.h lib
+
+  Part of final year project in electrical engineering @ Høyskolen i Oslo Akershus, Norway.
+  By Jon-Eivind Stranden & Nicholai Kaas Iversen © 2016.
+  https://github.com/joneivind
   
 
   ***** Connections *****
-
-  * MPU6050  UNO/NANO  MEGA2560
-  * VCC      +5v  +5v
-  * GND      GND  GND
-  * SCL      A5   C21
-  * SDA      A4   C20
-  * Int      D2   D2
   
-  * Motor Driver BTS7960 // UNO/NANO/MEGA2560
-  * VCC   +5v
-  * GND   GND
-  * RPWM    D5      Forward pwm input
-  * LPWM    D6      Reverse pwm input
-  * R_EN    D7      Forward drive enable input, can be bridged with L_EN
-  * L_EN    D8      Reverse drive enable input, can be bridged with R_EN
-  * R_IS  - Current alarm, not used
-  * L_IS  - Current alarm, not used
-  * B+    Battery+
-  * B-    Battery-
-  * M+    Motor+
-  * M-    Motor-
+  * SENSOR   UNO/NANO   MEGA2560
+  
+  * MPU6050 gyro/acc (I2C)
+  * VCC      +5v        +5v
+  * GND      GND        GND
+  * SCL      A5         C21
+  * SDA      A4         C20
+  * Int      D2         D2      (Optional)
+  
+  * Motor Driver BTS7960
+  * VCC     +5v
+  * GND     GND
+  * RPWM    D5        Forward pwm input
+  * LPWM    D6        Reverse pwm input
+  * R_EN    D7        Forward drive enable input, can be bridged with L_EN
+  * L_EN    D8        Reverse drive enable input, can be bridged with R_EN
+  * R_IS    -         Current alarm, not used
+  * L_IS    -         Current alarm, not used
+  * B+      Battery+
+  * B-      Battery-
+  * M+      Motor+
+  * M-      Motor-
+  
+  * 16x2 LCD display with I2C backpack
+  * VCC     +5v         +5v
+  * GND     GND         GND
+  * SCL     A5          C21
+  * SDA     A4          C20
   
   * Voltage divider 0-24v -> 0-5v ( R1: 380k, R2: 100k)
-  * Vout    A3    (Vout + from battery)
+  * Vout    A3          A3    Vout + from battery
 
   ***** Connections end *****
-
 
   Credits MPU6050 part: http://www.pitt.edu/~mpd41/Angle.ino
 
@@ -44,18 +52,24 @@
 #include <Wire.h>
 
 // PID constants
-float kp = 1.5; //Value between 0 <-> 0.8
+float kp = 1.5;
 float ki = 1.0; 
-float kd = 0.5; //Value between 0 <-> 0.5
+float kd = 0.5;
 
 bool ki_enable = false; //Enables integral regulator if true, disabled if false
 
 float setpoint = 90.0; // Initial degree setpoint
 
-int deadband = 5; // +-degrees of deadband around setpoint
-int max_roll = 40; // Degrees from setpoint before motor cut *SAFETY FUNCTION*
+int deadband = 5; // +-degrees of deadband around setpoint where motor output is zero
+int max_roll = 20; // Degrees from setpoint before motor cut
 
-bool fall_detection_trigger = false;
+//Pushback function
+float pushback_factor = 1.2; // How much increase in PID when pushback
+float pushback_angle = 15.0;  // Degrees where pushback should activate *Must be less than max_roll*
+float pushback_range = 8.0;  // Degrees from setpoint where pushback deactivates if activated
+bool pushback_enable = false; // Default start value
+
+bool fall_detection_trigger = false; // Default value fall detection
 
 // PID variables
 int Umax = 255;  // Max output
@@ -71,11 +85,11 @@ float last_error = 0.0; // Store last error sum
 int output = 0.0; // PID output
 
 // Timers
-int main_loop_timer = millis();
-int lastTime = millis();
+int main_loop_timer = millis(); // Dt timer main loop 
+int lastTime = millis(); //Dt timer PID loop
 
 // Input voltage divider
-int battery_voltage_input = A3;
+int battery_voltage_input = A3; // Sensor value 0-1023
 
 // Motor Driver BTS7960 pins
 int RPWM = 5; // Forward pwm input
@@ -108,15 +122,40 @@ float get_pid(float angle)
   lastTime = millis(); // Reset timer
 
   error = setpoint - angle; // Calculate error, e=SP-Y
+  
+  
+  //Pushback function if near max roll
+  float kp_1;
+  float kd_1;
+  
+  if (angle > (setpoint + pushback_angle) || angle < (setpoint - pushback_angle)) {
+    pushback_enable = true;
+  }
+  else if (pushback_enable = true && angle < (setpoint + pushback_range) && angle > (setpoint - pushback_range)) {
+    pushback_enable = false;
+  }
+  else {
+    pushback_enable = false;
+  }
+  
+  if (pushback_enable = true) {
+    kp_1 = kp * pushback_factor; // Increased kp
+    kd_1 = kd * pushback_factor; // Increased kd
+  }
+  else {
+    kp_1 = kp; // Stock kp
+    kd_1 = kd; // Stock kd
+  }
 
-  p_term = kp * error;  // Propotional
+ // Calculate PID
+  p_term = kp_1 * error;  // Propotional
   
   if (ki_enable == true) {  // Integral
     i_term += (ki * error * delta_t);
   }
-  else i_term = 0; //Disable integral regulator
+  else i_term = 0; // Disable integral regulator
   
-  d_term = kd * ((error - last_error) / delta_t); // Derivative
+  d_term = kd_1 * ((error - last_error) / delta_t); // Derivative
 
   output = p_term + i_term + d_term; // Calculate output
 
