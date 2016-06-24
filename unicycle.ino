@@ -251,7 +251,7 @@ void fall_detection_reset()
 	digitalWrite(reset_button_led_pin, reset_button_led_state); // Reset button led
 	
 	// Reset after fall by pressing reset button 
-	if (fall_detection_trigger == true && reset_state == HIGH)
+	if (fall_detection_trigger == true && roll < (setpoint + max_roll) && roll > (setpoint - max_roll) && reset_state == HIGH)
 	{
 		fall_detection_trigger = false; // Reset trigger
 		
