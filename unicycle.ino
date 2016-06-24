@@ -255,8 +255,6 @@ void fall_detection_reset()
 	{
 		fall_detection_trigger = false; // Reset trigger
 		
-		digitalWrite(reset_button_led_pin, HIGH); // Turn on button led
-		
 		lcd.clear();
 		lcd.setCursor(0, 0);
 		lcd.print("     RESET!     ");
