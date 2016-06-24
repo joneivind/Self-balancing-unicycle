@@ -40,6 +40,11 @@
   * SCL     A5          C21
   * SDA     A4          C20
   
+  * Reset button
+  * SIGNAL	D9					D9
+  * LED			D10					D10
+  * GND			GND					GND
+  
   * Voltage divider 0-24v -> 0-5v ( R1: 380k, R2: 100k)
   * Vout    A3          A3    Vout + from battery
 
@@ -50,26 +55,29 @@
 */
 
 #include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+
+LiquidCrystal_I2C lcd(0x27,16,2);  // set the LCD address to 0x27 for a 16 chars and 2 line display
 
 // PID constants
 float kp = 1.5;
 float ki = 1.0; 
 float kd = 0.5;
 
-bool ki_enable = false; //Enables integral regulator if true, disabled if false
-
 float setpoint = 90.0; // Initial degree setpoint
 
+bool ki_enable = false; //Enables integral regulator if true, disabled if false
+
 int deadband = 5; // +-degrees of deadband around setpoint where motor output is zero
-int max_roll = 20; // Degrees from setpoint before motor cut
+int max_roll = 30; // Degrees from setpoint before motor cut
 
 //Pushback function
+float pushback_angle = 20.0;  // Degrees where pushback should activate *Must be less than max_roll*
+float pushback_range = 10.0;  // Degrees from setpoint where pushback deactivates if activated
 float pushback_factor = 1.2; // How much increase in PID when pushback
-float pushback_angle = 15.0;  // Degrees where pushback should activate *Must be less than max_roll*
-float pushback_range = 8.0;  // Degrees from setpoint where pushback deactivates if activated
-bool pushback_enable = false; // Default start value
+bool pushback_enable = false; // Default pushback_enable value *DONT CHANGE*
 
-bool fall_detection_trigger = false; // Default value fall detection
+bool fall_detection_trigger = false; // Default value fall detection *DONT CHANGE*
 
 // PID variables
 int Umax = 255;  // Max output
@@ -96,6 +104,12 @@ int RPWM = 5; // Forward pwm input
 int LPWM = 6; // Reverse pwm input
 int R_EN = 7; // Forward drive enable input
 int L_EN = 8; // Reverse drive enable input
+
+// Reset button
+int reset_button_pin = 9;
+int reset_button_led_pin = 10;
+bool reset_button_led_state = true;
+int led_counter = 0;
 
 // MPU6050 (Gyro/acc) variables
 float degconvert = 57.2957786; // There are 57 degrees in a radian
@@ -124,7 +138,7 @@ float get_pid(float angle)
   error = setpoint - angle; // Calculate error, e=SP-Y
   
   
-  //Pushback function if near max roll
+  // Pushback function if near max roll
   float kp_1;
   float kd_1;
   
@@ -177,7 +191,7 @@ float get_pid(float angle)
 // ***** Motor output *****
 void motor(int pwm, float angle)
 {
-  // Set direction
+  // Set direction (Switch <> after angle to change direction of motor)
   if (angle > (setpoint + deadband))
   { 
     // Drive backward
@@ -215,7 +229,68 @@ void get_angle()
   //We will use this data to correct any cumulative errors in the orientation that the gyroscope develops.
   roll = atan2(AcY, AcZ)*degconvert;
   //pitch = atan2(-AcX, AcZ)*degconvert;
+}
 
+
+
+// ***** Read battery voltage *****
+int read_voltage()
+{
+	// Read battery voltage input and convert to 0-24v
+	int battery_voltage = map(analogRead(battery_voltage_input), 0, 1023, 0, 24);
+	
+	return battery_voltage;
+}
+
+
+
+// ***** Reset button function *****
+void fall_detection_reset()
+{
+	int reset_state = digitalRead(reset_button_pin); // Read reset button state
+	digitalWrite(reset_button_led_pin, reset_button_led_state); // Reset button led
+	
+	// Reset after fall by pressing reset button 
+	if (fall_detection_trigger == true && reset_state == HIGH)
+	{
+		fall_detection_trigger = false; // Reset trigger
+		
+		digitalWrite(reset_button_led_pin, HIGH); // Turn on button led
+		
+		lcd.clear();
+		lcd.setCursor(0, 0);
+		lcd.print("     RESET!     ");
+		lcd.setCursor(0, 1);
+		lcd.print(" Reset in  sek...");
+		for (int i=0; i<3;i++)
+		{
+			lcd.setCursor(10, 1);
+			lcd.print(i);
+			delay(1000);
+		}
+		lcd.clear();
+		
+		reset_button_led_state = true;
+	}
+	else
+	{
+		if (fall_detection_trigger == true)
+		{
+			lcd.clear();
+			lcd.setCursor(0, 0);
+			lcd.print(" FALL DETECTED! ");
+			lcd.setCursor(0, 1);
+			lcd.print("Push resetbutton");
+			delay(100);
+			
+			if (led_counter >= 10)
+			{
+				reset_button_led_state = !reset_button_led_state; // Blink led on button every second
+				led_counter = 0; // Reset led counter
+			}
+			led_counter++;
+		}
+	}
 }
 
 
@@ -257,27 +332,34 @@ void setup()
   //pitch = atan2(-AcX, AcZ)*degconvert;
 
 
+  // ***** Initialize lcd display *****
+  lcd.init(); 
+  lcd.clear(); // Clear display
+  lcd.backlight(); // Turn on backlight
+
 
   // ***** Battery voltage *****
   pinMode(battery_voltage_input, INPUT);
 
 
-  // ***** Motorcontroller setup *****
+  // ***** Motorcontroller *****
   pinMode(RPWM, OUTPUT); // PWM output right channel
   pinMode(LPWM, OUTPUT); // PWM output left channel
   pinMode(R_EN, OUTPUT); // Enable right channel
   pinMode(L_EN, OUTPUT); // Enable left channel
-
   digitalWrite(RPWM, LOW); // Disable motor @ start
   digitalWrite(LPWM, LOW);
   digitalWrite(R_EN, LOW);
   digitalWrite(L_EN, LOW);
-
-
+  
+  
+  // ***** Reset button *****
+  pinMode(reset_button_pin, INPUT);
+  pinMode(reset_button_led_pin, OUTPUT);
+  
 
   // ***** Begin serial port *****
   Serial.begin(115200);
-
 
 
   // ***** Initialize timer *****
@@ -290,22 +372,18 @@ void setup()
 // ***** Main loop *****
 void loop()
 { 
-  if ((millis() - main_loop_timer) > (dt * 1000)) // Run loop @ 100hz (1/100hz = 10ms)
+
+	fall_detection_reset(); // Detects if fall_detection is triggered and reads reset button state
+ 
+	if ((millis() - main_loop_timer) > (dt * 1000)) // Run loop @ 100hz (1/100hz = 10ms)
   {
     main_loop_timer = millis(); // Reset main loop timer
-
-    
-    // Read battery voltage input and convert to 0-100%
-    int battery_voltage = map(analogRead(battery_voltage_input), 0, 1023, 0, 100);
 
     //Get angle from MPU6050
     get_angle();
   
     //Calculate PID output
     int pid_output = get_pid(abs(roll)); // +-255
-
-
-    Serial.println(pid_output);
 
     // If roll angle is greater than max roll, stop motor
     if (roll > (setpoint + max_roll) || roll < (setpoint - max_roll) || fall_detection_trigger)
@@ -317,9 +395,39 @@ void loop()
     }
     else
     { 
-      digitalWrite(R_EN,HIGH); // Enable and write PID output value to motor
+    	// Enable and write PID output value to motor
+      digitalWrite(R_EN,HIGH);
       digitalWrite(L_EN,HIGH);
       motor(pid_output, roll);
     }
   }
+  
+  // ***** LCD output *****
+  
+  // Battery monitor
+	lcd.setCursor(0, 0);
+ 	lcd.print("Batt ");
+ 	lcd.setCursor(5, 0);
+	lcd.print(read_voltage());
+	lcd.setCursor(7, 0);
+ 	lcd.print("v");
+ 	
+ 	// Angle offset
+ 	lcd.setCursor(9, 0);
+ 	lcd.print("Err ");
+ 	lcd.setCursor(13, 0);
+ 	lcd.print(setpoint - roll);
+ 	
+ 	//PID values
+ 	lcd.setCursor(0, 1);
+ 	lcd.print("P: ");
+ 	lcd.setCursor(3, 1);
+ 	lcd.print(kp);
+ 	lcd.setCursor(7, 1);
+ 	lcd.print("D: ");
+ 	lcd.setCursor(10, 1);
+ 	lcd.print(kd);
+ 	
+ 	// ***** LCD output end *****
+ 	
 }
