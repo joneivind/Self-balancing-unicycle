@@ -23,12 +23,12 @@
   * Motor Driver BTS7960
   * VCC     +5v
   * GND     GND
-  * RPWM    D5        Forward pwm input
-  * LPWM    D6        Reverse pwm input
-  * R_EN    D7        Forward drive enable input, can be bridged with L_EN
-  * L_EN    D8        Reverse drive enable input, can be bridged with R_EN
-  * R_IS    -         Current alarm, not used
-  * L_IS    -         Current alarm, not used
+  * RPWM    D5        	Forward pwm input
+  * LPWM    D6        	Reverse pwm input
+  * R_EN    D7       		Forward drive enable input, can be bridged with L_EN
+  * L_EN    D8        	Reverse drive enable input, can be bridged with R_EN
+  * R_IS    -         	Current alarm, not used
+  * L_IS    -         	Current alarm, not used
   * B+      Battery+
   * B-      Battery-
   * M+      Motor+
@@ -69,13 +69,15 @@ float setpoint = 90.0; // Initial degree setpoint
 bool ki_enable = false; //Enables integral regulator if true, disabled if false
 
 int deadband = 5; // +-degrees of deadband around setpoint where motor output is zero
-int max_roll = 30; // Degrees from setpoint before motor cut
+int max_roll = 30; // Degrees from setpoint before motor will stop
 
 //Pushback function
-float pushback_angle = 20.0;  // Degrees where pushback should activate *Must be less than max_roll*
-float pushback_range = 10.0;  // Degrees from setpoint where pushback deactivates if activated
-float pushback_factor = 1.2; // How much increase in PID when pushback
-bool pushback_enable = false; // Default pushback_enable value *DONT CHANGE*
+float pushback_angle = 20.0;	// Degrees where pushback should activate *Must be less than max_roll*
+float pushback_range = 10.0;	// Degrees from setpoint where pushback deactivates if activated
+float pushback_factor = 1.2;	// How much increase in PID when pushback
+bool pushback_enable = false;	// Default pushback_enable value *DONT CHANGE*
+
+bool motor_direction_forward = true;	// Set motor direction forward/reverse
 
 bool fall_detection_trigger = false; // Default value fall detection *DONT CHANGE*
 
@@ -148,9 +150,9 @@ float get_pid(float angle)
   else if (pushback_enable = true && angle < (setpoint + pushback_range) && angle > (setpoint - pushback_range)) {
     pushback_enable = false;
   }
-  else {
+  /*else {
     pushback_enable = false;
-  }
+  }*/
   
   if (pushback_enable = true) {
     kp_1 = kp * pushback_factor; // Increased kp
@@ -191,17 +193,32 @@ float get_pid(float angle)
 // ***** Motor output *****
 void motor(int pwm, float angle)
 {
-  // Set direction (Switch <> after angle to change direction of motor)
-  if (angle > (setpoint + deadband))
-  { 
-    // Drive backward
-    analogWrite(LPWM, abs(pwm)); 
-  }
-  else if (angle < (setpoint - deadband))
-  { 
-    // Drive forward
-    analogWrite(RPWM, abs(pwm)); 
-  }
+	if (motor_direction_forward == true)
+	{
+	  if (angle > (setpoint + deadband))
+	  { 
+	    // Drive backward
+	    analogWrite(LPWM, abs(pwm)); 
+	  }
+	  else if (angle < (setpoint - deadband))
+	  { 
+	    // Drive forward
+	    analogWrite(RPWM, abs(pwm)); 
+	  }
+	}
+	else
+	{
+	  if (angle > (setpoint + deadband))
+	  { 
+	    // Drive backward
+	    analogWrite(RPWM, abs(pwm)); 
+	  }
+	  else if (angle < (setpoint - deadband))
+	  { 
+	    // Drive forward
+	    analogWrite(LPWM, abs(pwm)); 
+	  }
+	}
 }
 
 
