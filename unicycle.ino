@@ -291,7 +291,6 @@ void fall_detection_reset()
 	{
 		if (fall_detection_trigger == true)
 		{
-			lcd.clear();
 			lcd.setCursor(0, 0);
 			lcd.print(" FALL DETECTED! ");
 			lcd.setCursor(0, 1);
@@ -348,7 +347,7 @@ void setup()
 
 
   // ***** Initialize lcd display *****
-  lcd.init(); 
+  lcd.begin();
   lcd.clear(); // Clear display
   lcd.backlight(); // Turn on backlight
 
@@ -387,12 +386,11 @@ void setup()
 // ***** Main loop *****
 void loop()
 { 
-
-	fall_detection_reset(); // Detects if fall_detection is triggered and reads reset button state
- 
-	if ((millis() - main_loop_timer) > (dt * 1000)) // Run loop @ 100hz (1/100hz = 10ms)
+if ((millis() - main_loop_timer) > (dt * 1000)) // Run loop @ 100hz (1/100hz = 10ms)
   {
     main_loop_timer = millis(); // Reset main loop timer
+    
+		fall_detection_reset(); // Detects if fall_detection is triggered and reads reset button state
 
     //Get angle from MPU6050
     get_angle();
@@ -414,35 +412,34 @@ void loop()
       digitalWrite(R_EN,HIGH);
       digitalWrite(L_EN,HIGH);
       motor(pid_output, roll);
+      
+      // ***** LCD output *****
+	  
+		  // Battery monitor
+			lcd.setCursor(0, 0);
+		 	lcd.print("Batt:");
+		 	lcd.setCursor(5, 0);
+			lcd.print(read_voltage());
+			lcd.setCursor(7, 0);
+		 	lcd.print("v");
+		 	
+		 	// Angle offset
+		 	lcd.setCursor(9, 0);
+		 	lcd.print("Err:");
+		 	lcd.setCursor(13, 0);
+		 	lcd.print(setpoint - roll);
+		 	
+		 	//PID values
+		 	lcd.setCursor(0, 1);
+		 	lcd.print("P:");
+		 	lcd.setCursor(2, 1);
+		 	lcd.print(kp);
+		 	lcd.setCursor(7, 1);
+		 	lcd.print("D:");
+		 	lcd.setCursor(9, 1);
+		 	lcd.print(kd);
+		 	
+		 	// ***** LCD output end *****
     }
   }
-  
-  // ***** LCD output *****
-  
-  // Battery monitor
-	lcd.setCursor(0, 0);
- 	lcd.print("Batt ");
- 	lcd.setCursor(5, 0);
-	lcd.print(read_voltage());
-	lcd.setCursor(7, 0);
- 	lcd.print("v");
- 	
- 	// Angle offset
- 	lcd.setCursor(9, 0);
- 	lcd.print("Err ");
- 	lcd.setCursor(13, 0);
- 	lcd.print(setpoint - roll);
- 	
- 	//PID values
- 	lcd.setCursor(0, 1);
- 	lcd.print("P: ");
- 	lcd.setCursor(3, 1);
- 	lcd.print(kp);
- 	lcd.setCursor(7, 1);
- 	lcd.print("D: ");
- 	lcd.setCursor(10, 1);
- 	lcd.print(kd);
- 	
- 	// ***** LCD output end *****
- 	
 }
