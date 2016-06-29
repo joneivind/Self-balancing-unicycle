@@ -295,9 +295,9 @@ void fall_detection_reset()
 			lcd.print(" FALL DETECTED! ");
 			lcd.setCursor(0, 1);
 			lcd.print("Push resetbutton");
-			delay(100);
+			delay(10);
 			
-			if (led_counter >= 10)
+			if (led_counter >= 100)
 			{
 				reset_button_led_state = !reset_button_led_state; // Blink led on button every second
 				led_counter = 0; // Reset led counter
@@ -414,32 +414,31 @@ if ((millis() - main_loop_timer) > (dt * 1000)) // Run loop @ 100hz (1/100hz = 1
       motor(pid_output, roll);
       
       // ***** LCD output *****
-	  
-		  // Battery monitor
+			  
+			// Battery monitor
 			lcd.setCursor(0, 0);
-		 	lcd.print("Batt:");
-		 	lcd.setCursor(5, 0);
+			lcd.print("Batt:");
+			lcd.setCursor(5, 0);
 			lcd.print(read_voltage());
 			lcd.setCursor(7, 0);
-		 	lcd.print("v");
-		 	
-		 	// Angle offset
-		 	lcd.setCursor(9, 0);
-		 	lcd.print("Err:");
+			lcd.print("v");
+			// Angle offset
+			lcd.setCursor(9, 0);
+			lcd.print("Err:");
 		 	lcd.setCursor(13, 0);
-		 	lcd.print(setpoint - roll);
-		 	
+			lcd.print(setpoint - roll);
+				 	
 		 	//PID values
-		 	lcd.setCursor(0, 1);
-		 	lcd.print("P:");
-		 	lcd.setCursor(2, 1);
-		 	lcd.print(kp);
-		 	lcd.setCursor(7, 1);
-		 	lcd.print("D:");
-		 	lcd.setCursor(9, 1);
-		 	lcd.print(kd);
-		 	
-		 	// ***** LCD output end *****
+			lcd.setCursor(0, 1);
+			lcd.print("P:");
+			lcd.setCursor(2, 1);
+			lcd.print(kp);
+			lcd.setCursor(9, 1);
+			lcd.print("D:");
+			lcd.setCursor(11, 1);
+			lcd.print(kd);
+				 	
+			// ***** LCD output end *****
     }
   }
 }
