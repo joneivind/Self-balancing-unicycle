@@ -23,12 +23,12 @@
   * Motor Driver BTS7960
   * VCC     +5v
   * GND     GND
-  * RPWM    D5        	Forward pwm input
-  * LPWM    D6        	Reverse pwm input
-  * R_EN    D7       		Forward drive enable input, can be bridged with L_EN
-  * L_EN    D8        	Reverse drive enable input, can be bridged with R_EN
-  * R_IS    -         	Current alarm, not used
-  * L_IS    -         	Current alarm, not used
+  * RPWM    D5          Forward pwm input
+  * LPWM    D6          Reverse pwm input
+  * R_EN    D7          Forward drive enable input, can be bridged with L_EN
+  * L_EN    D8          Reverse drive enable input, can be bridged with R_EN
+  * R_IS    -           Current alarm, not used
+  * L_IS    -           Current alarm, not used
   * B+      Battery+
   * B-      Battery-
   * M+      Motor+
@@ -41,9 +41,9 @@
   * SDA     A4          C20
   
   * Reset button
-  * SIGNAL	D9					D9
-  * LED			D10					D10
-  * GND			GND					GND
+  * SIGNAL  D9          D9
+  * LED     D10         D10
+  * GND     GND         GND
   
   * Voltage divider 0-24v -> 0-5v ( R1: 380k, R2: 100k)
   * Vout    A3          A3    Vout + from battery
@@ -60,30 +60,30 @@
 LiquidCrystal_I2C lcd(0x3F,16,2);  // set the LCD address to 0x27 for a 16 chars and 2 line display
 
 // PID constants
-float kp = 1.5;
-float ki = 1.0; 
-float kd = 0.5;
+float kp = 12.0;
+float ki = 0.0005; 
+float kd = 5.0;
 
-float setpoint = 90.0; // Initial degree setpoint
+float setpoint = 86.0; // Initial degree setpoint
 
 bool ki_enable = false; //Enables integral regulator if true, disabled if false
 
-int deadband = 5; // +-degrees of deadband around setpoint where motor output is zero
-int max_roll = 30; // Degrees from setpoint before motor will stop
+int deadband = 1; // +-degrees of deadband around setpoint where motor output is zero
+int max_roll = 15; // Degrees from setpoint before motor will stop
 
 //Pushback function
-float pushback_angle = 20.0;	// Degrees where pushback should activate *Must be less than max_roll*
-float pushback_range = 10.0;	// Degrees from setpoint where pushback deactivates if activated
-float pushback_factor = 1.2;	// How much increase in PID when pushback
-bool pushback_enable = false;	// Default pushback_enable value *DONT CHANGE*
+float pushback_angle = 12.0;  // Degrees where pushback should activate *Must be less than max_roll*
+float pushback_range = 9.0;  // Degrees from setpoint where pushback deactivates if activated
+float pushback_factor = 1.2;  // How much increase in PID when pushback
+bool pushback_enable = false; // Default pushback_enable value *DONT CHANGE*
 
-bool motor_direction_forward = true;	// Set motor direction forward/reverse
+bool motor_direction_forward = false;  // Set motor direction forward/reverse
 
 bool fall_detection_trigger = false; // Default value fall detection *DONT CHANGE*
 
 // PID variables
-int Umax = 255;  // Max output
-int Umin = -255; // Min output
+int Umax = 150;  // Max output
+int Umin = -150; // Min output
 
 float p_term = 0.0; // Store propotional value
 float i_term = 0.0; // Store integral value
@@ -93,6 +93,8 @@ float error = 0.0; // Sum error
 float last_error = 0.0; // Store last error sum
 
 int output = 0.0; // PID output
+
+bool first_time = true;
 
 // Timers
 int main_loop_timer = millis(); // Dt timer main loop 
@@ -114,20 +116,11 @@ bool reset_button_led_state = true;
 int led_counter = 0;
 
 // MPU6050 (Gyro/acc) variables
-float degconvert = 57.2957786; // There are 57 degrees in a radian
-float dt = (10.0/1000.0); // 100hz = 10ms
-int MPU_addr = 0x68;
-int mpu_prev_dt; // MPU previous loop time
-float AcX,AcY,AcZ,Tmp,GyX,GyY,GyZ; // The raw data from the MPU6050.
-float roll = 0.0;
-float pitch = 0.0;
-float gyroXangle = 0.0;
-float gyroYangle = 0.0;
-float gyroXrate = 0.0;
-float gyroYrate = 0.0;
-float filtered_angle_pitch = 0.0;
-float filtered_angle_roll = 0.0;
-float mpu_dt = 0.0; // MPU loop time
+const int MPU_addr=0x68;
+double AcX,AcY,AcZ,Tmp,GyX,GyY,GyZ; //These will be the raw data from the MPU6050.
+uint32_t timer; //it's a timer, saved as a big-ass unsigned int.  We use it to save times from the "micros()" command and subtract the present time in microseconds from the time stored in timer to calculate the time for each loop.
+double compAngleX, compAngleY; //These are the angles in the complementary filter
+#define degconvert 57.2957786 //there are like 57 degrees in a radian.
 
 
 
@@ -193,40 +186,39 @@ float get_pid(float angle)
 // ***** Motor output *****
 void motor(int pwm, float angle)
 {
-	if (motor_direction_forward == true)
-	{
-	  if (angle > (setpoint + deadband))
-	  { 
-	    // Drive backward
-	    analogWrite(LPWM, abs(pwm)); 
-	  }
-	  else if (angle < (setpoint - deadband))
-	  { 
-	    // Drive forward
-	    analogWrite(RPWM, abs(pwm)); 
-	  }
-	}
-	else
-	{
-	  if (angle > (setpoint + deadband))
-	  { 
-	    // Drive backward
-	    analogWrite(RPWM, abs(pwm)); 
-	  }
-	  else if (angle < (setpoint - deadband))
-	  { 
-	    // Drive forward
-	    analogWrite(LPWM, abs(pwm)); 
-	  }
-	}
+  if (motor_direction_forward == true)
+  {
+    if (angle > (setpoint + deadband))
+    { 
+      // Drive backward
+      analogWrite(LPWM, abs(pwm)); 
+    }
+    else if (angle < (setpoint - deadband))
+    { 
+      // Drive forward
+      analogWrite(RPWM, abs(pwm)); 
+    }
+  }
+  else
+  {
+    if (angle > (setpoint + deadband))
+    { 
+      // Drive backward
+      analogWrite(RPWM, abs(pwm)); 
+    }
+    else if (angle < (setpoint - deadband))
+    { 
+      // Drive forward
+      analogWrite(LPWM, abs(pwm)); 
+    }
+  }
 }
 
 
 
 // ***** Get angle from MPU6050 gyro/acc *****
-void get_angle() 
+float get_angle() 
 { 
-  // Collect raw data from the sensor.
   Wire.beginTransmission(MPU_addr);
   Wire.write(0x3B);  // starting with register 0x3B (ACCEL_XOUT_H)
   Wire.endTransmission(false);
@@ -238,14 +230,30 @@ void get_angle()
   GyX=Wire.read()<<8|Wire.read();  // 0x43 (GYRO_XOUT_H) & 0x44 (GYRO_XOUT_L)
   GyY=Wire.read()<<8|Wire.read();  // 0x45 (GYRO_YOUT_H) & 0x46 (GYRO_YOUT_L)
   GyZ=Wire.read()<<8|Wire.read();  // 0x47 (GYRO_ZOUT_H) & 0x48 (GYRO_ZOUT_L)
-
-  mpu_dt = (float)(millis() - mpu_prev_dt) / 1000; //This line does three things: 1) stops the timer, 2)converts the timer's output to seconds from microseconds, 3)casts the value as a double saved to "dt".
-  mpu_prev_dt = millis(); //start the timer again so that we can calculate the next dt.
+  
+  double dt = (double)(micros() - timer) / 1000000; //This line does three things: 1) stops the timer, 2)converts the timer's output to seconds from microseconds, 3)casts the value as a double saved to "dt".
+  timer = micros(); //start the timer again so that we can calculate the next dt.
 
   //the next two lines calculate the orientation of the accelerometer relative to the earth and convert the output of atan2 from radians to degrees
   //We will use this data to correct any cumulative errors in the orientation that the gyroscope develops.
-  roll = atan2(AcY, AcZ)*degconvert;
-  //pitch = atan2(-AcX, AcZ)*degconvert;
+  double roll = atan2(AcY, AcZ)*degconvert;
+  double pitch = atan2(-AcX, AcZ)*degconvert;
+
+  //The gyroscope outputs angular velocities.  To convert these velocities from the raw data to deg/second, divide by 131.  
+  //Notice, we're dividing by a double "131.0" instead of the int 131.
+  double gyroXrate = GyX/131.0;
+  double gyroYrate = GyY/131.0;
+
+  //THE COMPLEMENTARY FILTER
+  //This filter calculates the angle based MOSTLY on integrating the angular velocity to an angular displacement.
+  //dt, recall, is the time between gathering data from the MPU6050.  We'll pretend that the 
+  //angular velocity has remained constant over the time dt, and multiply angular velocity by 
+  //time to get displacement.
+  //The filter then adds a small correcting factor from the accelerometer ("roll" or "pitch"), so the gyroscope knows which way is down. 
+  compAngleX = 0.99 * (compAngleX + gyroXrate * dt) + 0.01 * roll; // Calculate the angle using a Complimentary filter
+  compAngleY = 0.99 * (compAngleY + gyroYrate * dt) + 0.01 * pitch;
+
+  return compAngleX;
 }
 
 
@@ -253,59 +261,59 @@ void get_angle()
 // ***** Read battery voltage *****
 int read_voltage()
 {
-	// Read battery voltage input and convert to 0-24v
-	int battery_voltage = map(analogRead(battery_voltage_input), 0, 1023, 0, 24);
-	
-	return battery_voltage;
+  // Read battery voltage input and convert to 0-24v
+  int battery_voltage = map(analogRead(battery_voltage_input), 0, 1023, 0, 26);
+  
+  return battery_voltage;
 }
 
 
 
 // ***** Reset button function *****
-void fall_detection_reset()
+/*void fall_detection_reset()
 {
-	int reset_state = digitalRead(reset_button_pin); // Read reset button state
-	digitalWrite(reset_button_led_pin, reset_button_led_state); // Reset button led
-	
-	// Reset after fall by pressing reset button 
-	if (fall_detection_trigger == true && roll < (setpoint + max_roll) && roll > (setpoint - max_roll) && reset_state == HIGH)
-	{
-		fall_detection_trigger = false; // Reset trigger
-		
-		lcd.clear();
-		lcd.setCursor(0, 0);
-		lcd.print("     RESET!     ");
-		lcd.setCursor(0, 1);
-		lcd.print(" Reset in  sek...");
-		for (int i=0; i<3;i++)
-		{
-			lcd.setCursor(10, 1);
-			lcd.print(i);
-			delay(1000);
-		}
-		lcd.clear();
-		
-		reset_button_led_state = true;
-	}
-	else
-	{
-		if (fall_detection_trigger == true)
-		{
-			lcd.setCursor(0, 0);
-			lcd.print(" FALL DETECTED! ");
-			lcd.setCursor(0, 1);
-			lcd.print("Push resetbutton");
-			delay(10);
-			
-			if (led_counter >= 100)
-			{
-				reset_button_led_state = !reset_button_led_state; // Blink led on button every second
-				led_counter = 0; // Reset led counter
-			}
-			led_counter++;
-		}
-	}
-}
+  int reset_state = digitalRead(reset_button_pin); // Read reset button state
+  digitalWrite(reset_button_led_pin, reset_button_led_state); // Reset button led
+  
+  // Reset after fall by pressing reset button 
+  if (fall_detection_trigger == true && angle < (setpoint + max_roll) && angle > (setpoint - max_roll) && reset_state == HIGH)
+  {
+    fall_detection_trigger = false; // Reset trigger
+    
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("     RESET!     ");
+    lcd.setCursor(0, 1);
+    lcd.print(" Reset in  sek...");
+    for (int i=0; i<3;i++)
+    {
+      lcd.setCursor(10, 1);
+      lcd.print(i);
+      delay(1000);
+    }
+    lcd.clear();
+    
+    reset_button_led_state = true;
+  }
+  else
+  {
+    if (fall_detection_trigger == true)
+    {
+      lcd.setCursor(0, 0);
+      lcd.print(" FALL DETECTED! ");
+      lcd.setCursor(0, 1);
+      lcd.print("Push resetbutton");
+      delay(10);
+      
+      if (led_counter >= 100)
+      {
+        reset_button_led_state = !reset_button_led_state; // Blink led on button every second
+        led_counter = 0; // Reset led counter
+      }
+      led_counter++;
+    }
+  }
+}*/
 
 
 
@@ -317,17 +325,18 @@ void setup()
   #if ARDUINO >= 157
   Wire.setClock(400000UL); // Set I2C frequency to 400kHz
   #else
-  TWBR = ((F_CPU / 400000UL) - 16) / 2; // Set I2C frequency to 400kHz
+    TWBR = ((F_CPU / 400000UL) - 16) / 2; // Set I2C frequency to 400kHz
   #endif
 
+  
   Wire.beginTransmission(MPU_addr);
   Wire.write(0x6B);  // PWR_MGMT_1 register
   Wire.write(0);     // set to zero (wakes up the MPU-6050)
   Wire.endTransmission(true);
-
+  Serial.begin(115200);
   delay(100);
 
-  // setup starting angle
+  //setup starting angle
   //1) collect the data
   Wire.beginTransmission(MPU_addr);
   Wire.write(0x3B);  // starting with register 0x3B (ACCEL_XOUT_H)
@@ -342,8 +351,17 @@ void setup()
   GyZ=Wire.read()<<8|Wire.read();  // 0x47 (GYRO_ZOUT_H) & 0x48 (GYRO_ZOUT_L)
 
   //2) calculate pitch and roll
-  roll = atan2(AcY, AcZ)*degconvert;
-  //pitch = atan2(-AcX, AcZ)*degconvert;
+  double roll = atan2(AcY, AcZ)*degconvert;
+  double pitch = atan2(-AcX, AcZ)*degconvert;
+
+  //3) set the starting angle to this pitch and roll
+  double gyroXangle = roll;
+  double gyroYangle = pitch;
+  double compAngleX = roll;
+  double compAngleY = pitch;
+
+  //start a timer
+  timer = micros();
 
 
   // ***** Initialize lcd display *****
@@ -375,9 +393,8 @@ void setup()
   // ***** Begin serial port *****
   Serial.begin(115200);
 
-
   // ***** Initialize timer *****
-  mpu_prev_dt = millis(); // Initialize MPU timer
+  //mpu_prev_dt = millis(); // Initialize MPU timer
   main_loop_timer = millis(); // Initialize main loop timer
 }
 
@@ -386,60 +403,84 @@ void setup()
 // ***** Main loop *****
 void loop()
 { 
-if ((millis() - main_loop_timer) > (dt * 1000)) // Run loop @ 100hz (1/100hz = 10ms)
+  float angle = get_angle();
+  
+  if(first_time == true)
+  {
+    lcd.clear();
+    while(int(setpoint - get_angle()) != 0)
+    {
+      get_angle();
+      lcd.setCursor(0, 0);
+      lcd.print("Kalibrer gyro...");
+      lcd.setCursor(0, 1);
+      lcd.print("Hold opp                  ");
+      lcd.setCursor(9, 1);
+      lcd.print(int(setpoint - get_angle()));
+    }
+    first_time = false;
+    lcd.clear();
+  }
+
+  if ((millis() - main_loop_timer) > (10.0/1000.0 * 1000)) // Run loop @ 100hz (1/100hz = 10ms)
   {
     main_loop_timer = millis(); // Reset main loop timer
     
-		fall_detection_reset(); // Detects if fall_detection is triggered and reads reset button state
-
-    //Get angle from MPU6050
-    get_angle();
-  
+    //fall_detection_reset(); // Detects if fall_detection is triggered and reads reset button state
+    
     //Calculate PID output
-    int pid_output = get_pid(abs(roll)); // +-255
+    int pid_output = get_pid(abs(angle)); // +-255
 
     // If roll angle is greater than max roll, stop motor
-    if (roll > (setpoint + max_roll) || roll < (setpoint - max_roll) || fall_detection_trigger)
+    if (angle > (setpoint + max_roll) || angle < (setpoint - max_roll) /*|| fall_detection_trigger*/)
     {
       digitalWrite(R_EN,LOW);
       digitalWrite(L_EN,LOW);
-      motor(0, roll);
+      motor(0, angle);
       fall_detection_trigger = true; // Fall detected
+      lcd.setCursor(0, 0);
+      lcd.print(" FALL DETECTED!        ");
+      lcd.setCursor(0, 1);
+      lcd.print("                       ");
     }
     else
     { 
-    	// Enable and write PID output value to motor
+      // Enable and write PID output value to motor
       digitalWrite(R_EN,HIGH);
       digitalWrite(L_EN,HIGH);
-      motor(pid_output, roll);
+      motor(pid_output, angle);
       
       // ***** LCD output *****
-			  
-			// Battery monitor
+        
+      // Battery monitor
       lcd.setCursor(0, 0);
-      lcd.print("Batt:");
-      lcd.setCursor(5, 0);
-      lcd.print(read_voltage());
-      lcd.setCursor(7, 0);
-      lcd.print("v");
+      lcd.print("PID:");
+      lcd.setCursor(4, 0);
+      lcd.print(pid_output);
+      lcd.print("   ");
       
       // Angle offset
       lcd.setCursor(0, 1);
       lcd.print("Offs:");
       lcd.setCursor(5, 1);
-      lcd.print(int(setpoint - roll));
+      lcd.print(int(setpoint - angle));
+      lcd.print("   ");
       
       //PID values
-      lcd.setCursor(10, 0);
-      lcd.print("P:");
+      lcd.setCursor(9, 0);
+      lcd.print(" P:");
       lcd.setCursor(12, 0);
       lcd.print(kp);
-      lcd.setCursor(10, 1);
-      lcd.print("D:");
+      lcd.setCursor(9, 1);
+      lcd.print(" D:");
       lcd.setCursor(12, 1);
       lcd.print(kd);
-				 	
-			// ***** LCD output end *****
+          
+      // ***** LCD output end *****
+
+      Serial.print(setpoint - angle);
+      Serial.print("\t");
+      Serial.println(pid_output);
     }
   }
 }
