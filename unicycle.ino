@@ -60,9 +60,9 @@
 LiquidCrystal_I2C lcd(0x3F,16,2);  // set the LCD address to 0x27 for a 16 chars and 2 line display
 
 // PID constants
-float kp = 12.0;
+float kp = 15.0;
 float ki = 0.0005; 
-float kd = 5.0;
+float kd = 6.0;
 
 // PID output variable
 float kp_1;
@@ -79,7 +79,7 @@ int min_roll = 8; // Degrees from setpoint before motor will stop
 //Pushback function
 float pushback_angle = 8.0;  // Degrees where pushback should activate *Must be less than max_roll*
 float pushback_range = 6.0;  // Degrees from setpoint where pushback deactivates if activated
-float pushback_factor = 1.2;  // How much increase in PID when pushback
+float pushback_factor = 1.1;  // How much increase in PID when pushback
 bool pushback_enable = false; // Default pushback_enable value *DONT CHANGE*
 
 bool motor_direction_forward = false;  // Set motor direction forward/reverse
@@ -320,6 +320,16 @@ int read_voltage()
 // ***** Main setup *****
 void setup()
 { 
+  // ***** Initialize lcd display *****
+  lcd.begin();
+  lcd.clear(); // Clear display
+  lcd.backlight(); // Turn on backlight
+  lcd.setCursor(0, 0);
+  lcd.print("   SB Unicycle  ");
+  lcd.setCursor(0, 1);
+  lcd.print("   Booting...   ");
+  
+  
   // ***** MPU6050 setup *****
   Wire.begin();
   #if ARDUINO >= 157
@@ -363,13 +373,6 @@ void setup()
   //start a timer
   timer = micros();
 
-
-  // ***** Initialize lcd display *****
-  lcd.begin();
-  lcd.clear(); // Clear display
-  lcd.backlight(); // Turn on backlight
-
-
   // ***** Battery voltage *****
   pinMode(battery_voltage_input, INPUT);
 
@@ -398,20 +401,24 @@ void setup()
   main_loop_timer = millis(); // Initialize main loop timer
 
 
+  for (int i=0; i<1000; i++)
+  {
+    get_angle();
+  }
+  
   lcd.clear();
+  
   while(int(setpoint - get_angle()) != 0)
   {
     get_angle();
     lcd.setCursor(0, 0);
-    lcd.print("Calibrating gyro");
+    lcd.print("Keep centered    ");
     lcd.setCursor(0, 1);
-    lcd.print("Please wait ");
+    lcd.print("Wait for zero ");
     lcd.print(int(setpoint - get_angle()));
     lcd.print("   ");
   }
   lcd.clear();
-
-  pushback_enable = false;
 }
 
 
