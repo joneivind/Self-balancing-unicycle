@@ -250,8 +250,8 @@ float get_angle()
   //angular velocity has remained constant over the time dt, and multiply angular velocity by 
   //time to get displacement.
   //The filter then adds a small correcting factor from the accelerometer ("roll" or "pitch"), so the gyroscope knows which way is down. 
-  compAngleX = 0.97 * (compAngleX + gyroXrate * dt) + 0.03 * roll; // Calculate the angle using a Complimentary filter
-  compAngleY = 0.97 * (compAngleY + gyroYrate * dt) + 0.03 * pitch;
+  compAngleX = 0.98 * (compAngleX + gyroXrate * dt) + 0.02 * roll; // Calculate the angle using a Complimentary filter
+  compAngleY = 0.98 * (compAngleY + gyroYrate * dt) + 0.02 * pitch;
 
   return compAngleX;
 }
@@ -505,7 +505,7 @@ void loop()
       // DEBUG Serial display
       Serial.print(setpoint - angle);
       Serial.print("\t");
-      Serial.println(pid_output);
+      Serial.println(pid_output/10.0);
     }
   }
 }
