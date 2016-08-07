@@ -64,16 +64,21 @@ float kp = 12.0;
 float ki = 0.0005; 
 float kd = 5.0;
 
+// PID output variable
+float kp_1;
+float kd_1;
+
 float setpoint = 86.0; // Initial degree setpoint
 
 bool ki_enable = false; //Enables integral regulator if true, disabled if false
 
-int deadband = 1; // +-degrees of deadband around setpoint where motor output is zero
-int max_roll = 15; // Degrees from setpoint before motor will stop
+int deadband = 0; // +-degrees of deadband around setpoint where motor output is zero
+int max_roll = 12; // Degrees from setpoint before motor will stop
+int min_roll = 8; // Degrees from setpoint before motor will stop
 
 //Pushback function
-float pushback_angle = 12.0;  // Degrees where pushback should activate *Must be less than max_roll*
-float pushback_range = 9.0;  // Degrees from setpoint where pushback deactivates if activated
+float pushback_angle = 8.0;  // Degrees where pushback should activate *Must be less than max_roll*
+float pushback_range = 6.0;  // Degrees from setpoint where pushback deactivates if activated
 float pushback_factor = 1.2;  // How much increase in PID when pushback
 bool pushback_enable = false; // Default pushback_enable value *DONT CHANGE*
 
@@ -82,8 +87,8 @@ bool motor_direction_forward = false;  // Set motor direction forward/reverse
 bool fall_detection_trigger = false; // Default value fall detection *DONT CHANGE*
 
 // PID variables
-int Umax = 150;  // Max output
-int Umin = -150; // Min output
+float Umax = 150.0;  // Max output
+float Umin = -150.0; // Min output
 
 float p_term = 0.0; // Store propotional value
 float i_term = 0.0; // Store integral value
@@ -93,8 +98,6 @@ float error = 0.0; // Sum error
 float last_error = 0.0; // Store last error sum
 
 int output = 0.0; // PID output
-
-bool first_time = true;
 
 // Timers
 int main_loop_timer = millis(); // Dt timer main loop 
@@ -132,22 +135,19 @@ float get_pid(float angle)
 
   error = setpoint - angle; // Calculate error, e=SP-Y
   
-  
   // Pushback function if near max roll
-  float kp_1;
-  float kd_1;
   
   if (angle > (setpoint + pushback_angle) || angle < (setpoint - pushback_angle)) {
     pushback_enable = true;
   }
-  else if (pushback_enable = true && angle < (setpoint + pushback_range) && angle > (setpoint - pushback_range)) {
+  else if (pushback_enable && angle < (setpoint + pushback_range) && angle > (setpoint - pushback_range)) {
     pushback_enable = false;
   }
   /*else {
     pushback_enable = false;
   }*/
   
-  if (pushback_enable = true) {
+  if (pushback_enable) {
     kp_1 = kp * pushback_factor; // Increased kp
     kd_1 = kd * pushback_factor; // Increased kd
   }
@@ -250,8 +250,8 @@ float get_angle()
   //angular velocity has remained constant over the time dt, and multiply angular velocity by 
   //time to get displacement.
   //The filter then adds a small correcting factor from the accelerometer ("roll" or "pitch"), so the gyroscope knows which way is down. 
-  compAngleX = 0.99 * (compAngleX + gyroXrate * dt) + 0.01 * roll; // Calculate the angle using a Complimentary filter
-  compAngleY = 0.99 * (compAngleY + gyroYrate * dt) + 0.01 * pitch;
+  compAngleX = 0.97 * (compAngleX + gyroXrate * dt) + 0.03 * roll; // Calculate the angle using a Complimentary filter
+  compAngleY = 0.97 * (compAngleY + gyroYrate * dt) + 0.03 * pitch;
 
   return compAngleX;
 }
@@ -396,6 +396,22 @@ void setup()
   // ***** Initialize timer *****
   //mpu_prev_dt = millis(); // Initialize MPU timer
   main_loop_timer = millis(); // Initialize main loop timer
+
+
+  lcd.clear();
+  while(int(setpoint - get_angle()) != 0)
+  {
+    get_angle();
+    lcd.setCursor(0, 0);
+    lcd.print("Calibrating gyro");
+    lcd.setCursor(0, 1);
+    lcd.print("Please wait ");
+    lcd.print(int(setpoint - get_angle()));
+    lcd.print("   ");
+  }
+  lcd.clear();
+
+  pushback_enable = false;
 }
 
 
@@ -403,28 +419,11 @@ void setup()
 // ***** Main loop *****
 void loop()
 { 
-  float angle = get_angle();
-  
-  if(first_time == true)
-  {
-    lcd.clear();
-    while(int(setpoint - get_angle()) != 0)
-    {
-      get_angle();
-      lcd.setCursor(0, 0);
-      lcd.print("Kalibrer gyro...");
-      lcd.setCursor(0, 1);
-      lcd.print("Hold opp                  ");
-      lcd.setCursor(9, 1);
-      lcd.print(int(setpoint - get_angle()));
-    }
-    first_time = false;
-    lcd.clear();
-  }
-
   if ((millis() - main_loop_timer) > (10.0/1000.0 * 1000)) // Run loop @ 100hz (1/100hz = 10ms)
   {
     main_loop_timer = millis(); // Reset main loop timer
+
+    float angle = get_angle();
     
     //fall_detection_reset(); // Detects if fall_detection is triggered and reads reset button state
     
@@ -432,17 +431,42 @@ void loop()
     int pid_output = get_pid(abs(angle)); // +-255
 
     // If roll angle is greater than max roll, stop motor
-    if (angle > (setpoint + max_roll) || angle < (setpoint - max_roll) /*|| fall_detection_trigger*/)
+    if (angle > (setpoint + max_roll) || angle < (setpoint - min_roll))
     {
       digitalWrite(R_EN,LOW);
       digitalWrite(L_EN,LOW);
       motor(0, angle);
+      
       fall_detection_trigger = true; // Fall detected
-      lcd.setCursor(0, 0);
-      lcd.print(" FALL DETECTED!        ");
-      lcd.setCursor(0, 1);
-      lcd.print("                       ");
+
+      if(fall_detection_trigger = true)
+      {
+        lcd.setCursor(0, 0);
+        lcd.print(" FALL DETECTED! ");
+        lcd.setCursor(0, 1);
+        lcd.print(" Please reset...");
+          
+        while(1);
+        /*{
+          if(digitalRead(reset_button_pin))
+          {
+            lcd.clear();
+            lcd.setCursor(0, 0);
+            lcd.print("Reset in   sek ");
+            
+            for (int i=5; i>0; i--)
+            { 
+              lcd.setCursor(9, 0);
+              lcd.print(i);
+              delay(1000);
+            }
+            lcd.clear();
+            break;
+            }
+          }*/
+      }
     }
+    
     else
     { 
       // Enable and write PID output value to motor
@@ -454,30 +478,31 @@ void loop()
         
       // Battery monitor
       lcd.setCursor(0, 0);
-      lcd.print("PID:");
+      lcd.print("OUT:");
       lcd.setCursor(4, 0);
-      lcd.print(pid_output);
-      lcd.print("   ");
+      lcd.print(abs(int((100.0/Umax)*pid_output)));
+      lcd.print("%  ");
       
       // Angle offset
       lcd.setCursor(0, 1);
       lcd.print("Offs:");
       lcd.setCursor(5, 1);
       lcd.print(int(setpoint - angle));
-      lcd.print("   ");
+      lcd.print("  ");
       
       //PID values
       lcd.setCursor(9, 0);
       lcd.print(" P:");
       lcd.setCursor(12, 0);
-      lcd.print(kp);
+      lcd.print(kp_1);
       lcd.setCursor(9, 1);
       lcd.print(" D:");
       lcd.setCursor(12, 1);
-      lcd.print(kd);
+      lcd.print(kd_1);
           
       // ***** LCD output end *****
 
+      // DEBUG Serial display
       Serial.print(setpoint - angle);
       Serial.print("\t");
       Serial.println(pid_output);
