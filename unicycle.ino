@@ -316,6 +316,12 @@ int read_voltage()
 }*/
 
 
+// ***** Set PWM frequecy *****
+void setPWMfrequency(int freq)
+{
+  TCCR0B = TCCR0B & 0b11111000 | freq ;
+}
+
 
 // ***** Main setup *****
 void setup()
@@ -328,8 +334,8 @@ void setup()
   lcd.print("   SB Unicycle  ");
   lcd.setCursor(0, 1);
   lcd.print("   Booting...   ");
-  
-  
+
+
   // ***** MPU6050 setup *****
   Wire.begin();
   #if ARDUINO >= 157
@@ -370,8 +376,10 @@ void setup()
   double compAngleX = roll;
   double compAngleY = pitch;
 
+
   //start a timer
   timer = micros();
+
 
   // ***** Battery voltage *****
   pinMode(battery_voltage_input, INPUT);
@@ -396,18 +404,25 @@ void setup()
   // ***** Begin serial port *****
   Serial.begin(115200);
 
+  
   // ***** Initialize timer *****
   //mpu_prev_dt = millis(); // Initialize MPU timer
   main_loop_timer = millis(); // Initialize main loop timer
+  
+  
+  // Adjust PWM frequecy on pin 5,6 to 3.92 kHz
+  setPWMfrequency(0x02);
 
 
+  // Add some initial gyro angle values
   for (int i=0; i<1000; i++)
   {
     get_angle();
   }
   
-  lcd.clear();
   
+  // Waiting for upright position
+  lcd.clear();
   while(int(setpoint - get_angle()) != 0)
   {
     get_angle();
