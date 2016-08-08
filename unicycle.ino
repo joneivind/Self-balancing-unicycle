@@ -316,12 +316,6 @@ int read_voltage()
 }*/
 
 
-// ***** Set PWM frequecy *****
-void setPWMfrequency(int freq)
-{
-  TCCR0B = TCCR0B & 0b11111000 | freq ;
-}
-
 
 // ***** Main setup *****
 void setup()
@@ -408,10 +402,7 @@ void setup()
   // ***** Initialize timer *****
   //mpu_prev_dt = millis(); // Initialize MPU timer
   main_loop_timer = millis(); // Initialize main loop timer
-  
-  
-  // Adjust PWM frequecy on pin 5,6 to 3.92 kHz
-  setPWMfrequency(0x02);
+
 
 
   // Add some initial gyro angle values
