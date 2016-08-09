@@ -23,8 +23,8 @@
   * Motor Driver BTS7960
   * VCC     +5v
   * GND     GND
-  * RPWM    D5          Forward pwm input
-  * LPWM    D6          Reverse pwm input
+  * RPWM    D9          Forward pwm input
+  * LPWM    D10         Reverse pwm input
   * R_EN    D7          Forward drive enable input, can be bridged with L_EN
   * L_EN    D8          Reverse drive enable input, can be bridged with R_EN
   * R_IS    -           Current alarm, not used
@@ -41,8 +41,8 @@
   * SDA     A4          C20
   
   * Reset button
-  * SIGNAL  D9          D9
-  * LED     D10         D10
+  * SIGNAL  D5          D5
+  * LED     D6          D6
   * GND     GND         GND
   
   * Voltage divider 0-24v -> 0-5v ( R1: 380k, R2: 100k)
@@ -50,7 +50,9 @@
 
   ***** Connections end *****
 
-  Credits MPU6050 part: http://www.pitt.edu/~mpd41/Angle.ino
+  Credits:
+  MPU6050 part: http://www.pitt.edu/~mpd41/Angle.ino
+  PWM frequency change: http://coolkidsrobots.com/guide/changing-pwm-frequencies-arduino
 
 */
 
@@ -107,14 +109,14 @@ int lastTime = millis(); //Dt timer PID loop
 int battery_voltage_input = A3; // Sensor value 0-1023
 
 // Motor Driver BTS7960 pins
-int RPWM = 5; // Forward pwm input
-int LPWM = 6; // Reverse pwm input
+int RPWM = 9; // Forward pwm input
+int LPWM = 10; // Reverse pwm input
 int R_EN = 7; // Forward drive enable input
 int L_EN = 8; // Reverse drive enable input
 
 // Reset button
-int reset_button_pin = 9;
-int reset_button_led_pin = 10;
+int reset_button_pin = 5;
+int reset_button_led_pin = 6;
 bool reset_button_led_state = true;
 int led_counter = 0;
 
@@ -269,54 +271,6 @@ int read_voltage()
 
 
 
-// ***** Reset button function *****
-/*void fall_detection_reset()
-{
-  int reset_state = digitalRead(reset_button_pin); // Read reset button state
-  digitalWrite(reset_button_led_pin, reset_button_led_state); // Reset button led
-  
-  // Reset after fall by pressing reset button 
-  if (fall_detection_trigger == true && angle < (setpoint + max_roll) && angle > (setpoint - max_roll) && reset_state == HIGH)
-  {
-    fall_detection_trigger = false; // Reset trigger
-    
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print("     RESET!     ");
-    lcd.setCursor(0, 1);
-    lcd.print(" Reset in  sek...");
-    for (int i=0; i<3;i++)
-    {
-      lcd.setCursor(10, 1);
-      lcd.print(i);
-      delay(1000);
-    }
-    lcd.clear();
-    
-    reset_button_led_state = true;
-  }
-  else
-  {
-    if (fall_detection_trigger == true)
-    {
-      lcd.setCursor(0, 0);
-      lcd.print(" FALL DETECTED! ");
-      lcd.setCursor(0, 1);
-      lcd.print("Push resetbutton");
-      delay(10);
-      
-      if (led_counter >= 100)
-      {
-        reset_button_led_state = !reset_button_led_state; // Blink led on button every second
-        led_counter = 0; // Reset led counter
-      }
-      led_counter++;
-    }
-  }
-}*/
-
-
-
 // ***** Main setup *****
 void setup()
 { 
@@ -369,6 +323,10 @@ void setup()
   double gyroYangle = pitch;
   double compAngleX = roll;
   double compAngleY = pitch;
+  
+  
+  // Change PWM frequency (Affects servo timer)
+  TCCR1B = TCCR1B & B11111000 | B00000010; // set timer 1 divisor to 8 for PWM frequency of 3921.16 Hz
 
 
   //start a timer
@@ -438,7 +396,6 @@ void loop()
 
     float angle = get_angle();
     
-    //fall_detection_reset(); // Detects if fall_detection is triggered and reads reset button state
     
     //Calculate PID output
     int pid_output = get_pid(abs(angle)); // +-255
@@ -460,23 +417,6 @@ void loop()
         lcd.print(" Please reset...");
           
         while(1);
-        /*{
-          if(digitalRead(reset_button_pin))
-          {
-            lcd.clear();
-            lcd.setCursor(0, 0);
-            lcd.print("Reset in   sek ");
-            
-            for (int i=5; i>0; i--)
-            { 
-              lcd.setCursor(9, 0);
-              lcd.print(i);
-              delay(1000);
-            }
-            lcd.clear();
-            break;
-            }
-          }*/
       }
     }
     
