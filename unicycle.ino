@@ -62,15 +62,15 @@
 LiquidCrystal_I2C lcd(0x3F,16,2);  // set the LCD address to 0x27 for a 16 chars and 2 line display
 
 // PID constants
-float kp = 15.0;
+float kp = 45.0;
 float ki = 0.0005; 
-float kd = 6.0;
+float kd = 16.0;
 
 // PID output variable
 float kp_1;
 float kd_1;
 
-float setpoint = 86.0; // Initial degree setpoint
+float setpoint = 84.0; // Initial degree setpoint
 
 bool ki_enable = false; //Enables integral regulator if true, disabled if false
 
