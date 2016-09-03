@@ -60,9 +60,9 @@
 LiquidCrystal_I2C lcd(0x3F,16,2);  // set the LCD address to 0x27 for a 16 chars and 2 line display
 
 // PID constants
-float kp = 45.0;
+float kp = 60.0;
 float ki = 0.0; 
-float kd = 6.0;
+float kd = 7.0;
 
 // PID output variable
 float kp_1;
@@ -501,7 +501,7 @@ void loop()
 
 
       //Turn on stats
-      if(offset == 0)
+      if(offset == 0 && motorPower == 0)
       {
         enableStats = true;
       }
@@ -531,11 +531,11 @@ void loop()
       lcd.setCursor(0, 0);
       lcd.print("Pwr:");
       lcd.print(motorPower);
-      lcd.print("%  ");
+      lcd.print("% ");
       
       //Max power value
-      lcd.setCursor(10, 0);
-      lcd.print("Max:");
+      lcd.setCursor(8, 0);
+      lcd.print("MaxP:");
       lcd.print(maxOutput);
       lcd.print("%  ");
       
@@ -543,11 +543,11 @@ void loop()
       lcd.setCursor(0, 1);
       lcd.print("Angle:");
       lcd.print(offset);
-      lcd.print("  ");
+      lcd.print(" ");
 
       //Max angle value
-      lcd.setCursor(10, 1);
-      lcd.print("Max:");
+      lcd.setCursor(8, 1);
+      lcd.print("MaxAng:");
       lcd.print(maxAngle);
 
      
