@@ -50,9 +50,7 @@
 
   ***** Connections end *****
 
-  Credits:
-  MPU6050 part: http://www.pitt.edu/~mpd41/Angle.ino
-  PWM frequency change: http://coolkidsrobots.com/guide/changing-pwm-frequencies-arduino
+  Credits MPU6050 part: http://www.pitt.edu/~mpd41/Angle.ino
 
 */
 
@@ -63,25 +61,25 @@ LiquidCrystal_I2C lcd(0x3F,16,2);  // set the LCD address to 0x27 for a 16 chars
 
 // PID constants
 float kp = 45.0;
-float ki = 0.0005; 
-float kd = 16.0;
+float ki = 0.0; 
+float kd = 6.0;
 
 // PID output variable
 float kp_1;
 float kd_1;
 
-float setpoint = 84.0; // Initial degree setpoint
+float setpoint = 81.0; // Initial degree setpoint
 
 bool ki_enable = false; //Enables integral regulator if true, disabled if false
 
 int deadband = 0; // +-degrees of deadband around setpoint where motor output is zero
-int max_roll = 12; // Degrees from setpoint before motor will stop
+int max_roll = 15; // Degrees from setpoint before motor will stop
 int min_roll = 8; // Degrees from setpoint before motor will stop
 
 //Pushback function
-float pushback_angle = 8.0;  // Degrees where pushback should activate *Must be less than max_roll*
-float pushback_range = 6.0;  // Degrees from setpoint where pushback deactivates if activated
-float pushback_factor = 1.1;  // How much increase in PID when pushback
+float pushback_angle = 4.0;  // Degrees where pushback should activate *Must be less than max_roll*
+float pushback_range = 3.0;  // Degrees from setpoint where pushback deactivates if activated
+float pushback_factor = 1.0;  // How much increase in PID when pushback
 bool pushback_enable = false; // Default pushback_enable value *DONT CHANGE*
 
 bool motor_direction_forward = false;  // Set motor direction forward/reverse
@@ -89,8 +87,8 @@ bool motor_direction_forward = false;  // Set motor direction forward/reverse
 bool fall_detection_trigger = false; // Default value fall detection *DONT CHANGE*
 
 // PID variables
-float Umax = 150.0;  // Max output
-float Umin = -150.0; // Min output
+float Umax = 255.0;  // Max output
+float Umin = -255.0; // Min output
 
 float p_term = 0.0; // Store propotional value
 float i_term = 0.0; // Store integral value
@@ -100,6 +98,11 @@ float error = 0.0; // Sum error
 float last_error = 0.0; // Store last error sum
 
 int output = 0.0; // PID output
+
+//Stats
+bool enableStats = false;
+int maxOutput = 0;
+int maxAngle = 0;
 
 // Timers
 int main_loop_timer = millis(); // Dt timer main loop 
@@ -159,7 +162,7 @@ float get_pid(float angle)
   }
 
  // Calculate PID
-  p_term = kp_1 * error;  // Propotional
+  p_term = error;  // Propotional
   
   if (ki_enable == true) {  // Integral
     i_term += (ki * error * delta_t);
@@ -168,7 +171,7 @@ float get_pid(float angle)
   
   d_term = kd_1 * ((error - last_error) / delta_t); // Derivative
 
-  output = p_term + i_term + d_term; // Calculate output
+  output = kp_1 * (p_term + i_term + d_term); // Calculate output
 
   // Limit output
   if (output > Umax) {
@@ -252,8 +255,8 @@ float get_angle()
   //angular velocity has remained constant over the time dt, and multiply angular velocity by 
   //time to get displacement.
   //The filter then adds a small correcting factor from the accelerometer ("roll" or "pitch"), so the gyroscope knows which way is down. 
-  compAngleX = 0.98 * (compAngleX + gyroXrate * dt) + 0.02 * roll; // Calculate the angle using a Complimentary filter
-  compAngleY = 0.98 * (compAngleY + gyroYrate * dt) + 0.02 * pitch;
+  compAngleX = 0.99 * (compAngleX + gyroXrate * dt) + 0.01 * roll; // Calculate the angle using a Complimentary filter
+  compAngleY = 0.99 * (compAngleY + gyroYrate * dt) + 0.01 * pitch;
 
   return compAngleX;
 }
@@ -271,6 +274,54 @@ int read_voltage()
 
 
 
+// ***** Reset button function *****
+/*void fall_detection_reset()
+{
+  int reset_state = digitalRead(reset_button_pin); // Read reset button state
+  digitalWrite(reset_button_led_pin, reset_button_led_state); // Reset button led
+  
+  // Reset after fall by pressing reset button 
+  if (fall_detection_trigger == true && angle < (setpoint + max_roll) && angle > (setpoint - max_roll) && reset_state == HIGH)
+  {
+    fall_detection_trigger = false; // Reset trigger
+    
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("     RESET!     ");
+    lcd.setCursor(0, 1);
+    lcd.print(" Reset in  sek...");
+    for (int i=0; i<3;i++)
+    {
+      lcd.setCursor(10, 1);
+      lcd.print(i);
+      delay(1000);
+    }
+    lcd.clear();
+    
+    reset_button_led_state = true;
+  }
+  else
+  {
+    if (fall_detection_trigger == true)
+    {
+      lcd.setCursor(0, 0);
+      lcd.print(" FALL DETECTED! ");
+      lcd.setCursor(0, 1);
+      lcd.print("Push resetbutton");
+      delay(10);
+      
+      if (led_counter >= 100)
+      {
+        reset_button_led_state = !reset_button_led_state; // Blink led on button every second
+        led_counter = 0; // Reset led counter
+      }
+      led_counter++;
+    }
+  }
+}*/
+
+
+
 // ***** Main setup *****
 void setup()
 { 
@@ -279,9 +330,9 @@ void setup()
   lcd.clear(); // Clear display
   lcd.backlight(); // Turn on backlight
   lcd.setCursor(0, 0);
-  lcd.print("   SB Unicycle  ");
+  lcd.print("  SB Unicycle  ");
   lcd.setCursor(0, 1);
-  lcd.print("   Booting...   ");
+  lcd.print("  Booting...   ");
 
 
   // ***** MPU6050 setup *****
@@ -323,8 +374,8 @@ void setup()
   double gyroYangle = pitch;
   double compAngleX = roll;
   double compAngleY = pitch;
-  
-  
+
+
   // Change PWM frequency (Affects servo timer)
   TCCR1B = TCCR1B & B11111000 | B00000010; // set timer 1 divisor to 8 for PWM frequency of 3921.16 Hz
 
@@ -360,9 +411,8 @@ void setup()
   // ***** Initialize timer *****
   //mpu_prev_dt = millis(); // Initialize MPU timer
   main_loop_timer = millis(); // Initialize main loop timer
-
-
-
+  
+  
   // Add some initial gyro angle values
   for (int i=0; i<1000; i++)
   {
@@ -396,6 +446,7 @@ void loop()
 
     float angle = get_angle();
     
+    //fall_detection_reset(); // Detects if fall_detection is triggered and reads reset button state
     
     //Calculate PID output
     int pid_output = get_pid(abs(angle)); // +-255
@@ -417,6 +468,23 @@ void loop()
         lcd.print(" Please reset...");
           
         while(1);
+        /*{
+          if(digitalRead(reset_button_pin))
+          {
+            lcd.clear();
+            lcd.setCursor(0, 0);
+            lcd.print("Reset in   sek ");
+            
+            for (int i=5; i>0; i--)
+            { 
+              lcd.setCursor(9, 0);
+              lcd.print(i);
+              delay(1000);
+            }
+            lcd.clear();
+            break;
+            }
+          }*/
       }
     }
     
@@ -426,39 +494,71 @@ void loop()
       digitalWrite(R_EN,HIGH);
       digitalWrite(L_EN,HIGH);
       motor(pid_output, angle);
+
+
+      int motorPower = int(abs(100.0/Umax) * pid_output);  //Shows motor output in % of total
+      int offset = int(setpoint - angle); //Shows error from setpoint in degrees
+
+
+      //Turn on stats
+      if(offset == 0)
+      {
+        enableStats = true;
+      }
+      
+      if(abs(motorPower) > maxOutput && enableStats)
+      {
+        maxOutput = abs(motorPower);
+      }
+      else if (!enableStats)
+      {
+        maxOutput = 0;
+      }
+
+      if(abs(offset) > maxAngle && enableStats)
+      {
+        maxAngle = abs(offset);
+      }
+      else if (!enableStats)
+      {
+        maxAngle = 0;
+      }
+
       
       // ***** LCD output *****
         
       // Battery monitor
       lcd.setCursor(0, 0);
-      lcd.print("OUT:");
-      lcd.setCursor(4, 0);
-      lcd.print(abs(int((100.0/Umax)*pid_output)));
+      lcd.print("Pwr:");
+      lcd.print(motorPower);
+      lcd.print("%  ");
+      
+      //Max power value
+      lcd.setCursor(10, 0);
+      lcd.print("Max:");
+      lcd.print(maxOutput);
       lcd.print("%  ");
       
       // Angle offset
       lcd.setCursor(0, 1);
-      lcd.print("Offs:");
-      lcd.setCursor(5, 1);
-      lcd.print(int(setpoint - angle));
+      lcd.print("Angle:");
+      lcd.print(offset);
       lcd.print("  ");
+
+      //Max angle value
+      lcd.setCursor(10, 1);
+      lcd.print("Max:");
+      lcd.print(maxAngle);
+
+     
+      // DEBUG Serial display
+      Serial.print(setpoint);
+      Serial.print("\t");
+      Serial.println(error + setpoint);
       
-      //PID values
-      lcd.setCursor(9, 0);
-      lcd.print(" P:");
-      lcd.setCursor(12, 0);
-      lcd.print(kp_1);
-      lcd.setCursor(9, 1);
-      lcd.print(" D:");
-      lcd.setCursor(12, 1);
-      lcd.print(kd_1);
           
       // ***** LCD output end *****
 
-      // DEBUG Serial display
-      Serial.print(setpoint - angle);
-      Serial.print("\t");
-      Serial.println(pid_output/10.0);
     }
   }
 }
