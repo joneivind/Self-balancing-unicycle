@@ -39,10 +39,19 @@
   * GND     GND         GND
   * SCL     A5          C21
   * SDA     A4          C20
+
+  * Ledstrip
+  * VCC     +5v
+  * GND     GND
+  * SIGNAL  D6
+
+  * Buzzer
+  * SIGNAL(+) D11
+  * GND     GND
   
   * Reset button
-  * SIGNAL  D5          D5
-  * LED     D6          D6
+  * SIGNAL  D4          D4
+  * LED     D5          D5
   * GND     GND         GND
   
   * Voltage divider 0-24v -> 0-5v ( R1: 380k, R2: 100k)
@@ -56,13 +65,19 @@
 
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
+#include <Adafruit_NeoPixel.h>
+#include <avr/power.h>
 
 LiquidCrystal_I2C lcd(0x3F,16,2);  // set the LCD address to 0x27 for a 16 chars and 2 line display
+
+
 
 // PID constants
 float kp = 60.0;
 float ki = 0.0; 
 float kd = 7.0;
+
+
 
 // PID output variable
 float kp_1;
@@ -78,8 +93,8 @@ int min_roll = 8; // Degrees from setpoint before motor will stop
 
 //Pushback function
 float pushback_angle = 4.0;  // Degrees where pushback should activate *Must be less than max_roll*
-float pushback_range = 3.0;  // Degrees from setpoint where pushback deactivates if activated
-float pushback_factor = 1.0;  // How much increase in PID when pushback
+float pushback_range = 1.0;  // Degrees from setpoint where pushback deactivates if activated
+float pushback_factor = 1.3;  // How much increase in PID when pushback
 bool pushback_enable = false; // Default pushback_enable value *DONT CHANGE*
 
 bool motor_direction_forward = false;  // Set motor direction forward/reverse
@@ -131,6 +146,19 @@ double compAngleX, compAngleY; //These are the angles in the complementary filte
 #define degconvert 57.2957786 //there are like 57 degrees in a radian.
 
 
+// **** Neopixels settings ****
+int ledPin = 6;
+
+// How many NeoPixels are attached to the Arduino?
+int numPixel = 15;
+
+Adafruit_NeoPixel pixels = Adafruit_NeoPixel(numPixel, ledPin, NEO_GRB + NEO_KHZ800);
+
+// **** Neopixels end ****
+
+
+int buzzerPin = 11;
+
 
 // ***** PID function *****
 float get_pid(float angle)
@@ -139,18 +167,14 @@ float get_pid(float angle)
   lastTime = millis(); // Reset timer
 
   error = setpoint - angle; // Calculate error, e=SP-Y
-  
+
   // Pushback function if near max roll
-  
-  if (angle > (setpoint + pushback_angle) || angle < (setpoint - pushback_angle)) {
+    if (angle >= (setpoint + pushback_angle) || angle <= (setpoint - pushback_angle)) {
     pushback_enable = true;
   }
-  else if (pushback_enable && angle < (setpoint + pushback_range) && angle > (setpoint - pushback_range)) {
+  else if (pushback_enable && angle <= (setpoint + pushback_range) && angle >= (setpoint - pushback_range)) {
     pushback_enable = false;
   }
-  /*else {
-    pushback_enable = false;
-  }*/
   
   if (pushback_enable) {
     kp_1 = kp * pushback_factor; // Increased kp
@@ -335,6 +359,10 @@ void setup()
   lcd.print("  Booting...   ");
 
 
+  // ***** initialize the NeoPixel library *****
+  pixels.begin(); 
+  
+
   // ***** MPU6050 setup *****
   Wire.begin();
   #if ARDUINO >= 157
@@ -409,7 +437,6 @@ void setup()
 
   
   // ***** Initialize timer *****
-  //mpu_prev_dt = millis(); // Initialize MPU timer
   main_loop_timer = millis(); // Initialize main loop timer
   
   
@@ -418,7 +445,16 @@ void setup()
   {
     get_angle();
   }
-  
+
+  // Light up neopixel ledstrip
+  for(int i=0;i<numPixel;i++)
+  {
+    pixels.setPixelColor(i, pixels.Color(0,255,0)); // Set color
+    pixels.show();  // Send updated pixel color value to hardware
+    delay(0);  // Delay between each pixel
+  }
+
+  tone(buzzerPin, 1000, 500);
   
   // Waiting for upright position
   lcd.clear();
@@ -440,7 +476,7 @@ void setup()
 // ***** Main loop *****
 void loop()
 { 
-  if ((millis() - main_loop_timer) > (10.0/1000.0 * 1000)) // Run loop @ 100hz (1/100hz = 10ms)
+  if ((millis() - main_loop_timer) > (10.0f/1000.0f * 1000)) // Run loop @ 100hz (1/100hz = 10ms)
   {
     main_loop_timer = millis(); // Reset main loop timer
 
@@ -466,25 +502,32 @@ void loop()
         lcd.print(" FALL DETECTED! ");
         lcd.setCursor(0, 1);
         lcd.print(" Please reset...");
+
+        tone(buzzerPin, 1000, 2000);
           
-        while(1);
-        /*{
-          if(digitalRead(reset_button_pin))
+        while(1)
+        {
+          // Fade down leds
+          for(int i1=0;i1<numPixel;i1++)
           {
-            lcd.clear();
-            lcd.setCursor(0, 0);
-            lcd.print("Reset in   sek ");
-            
-            for (int i=5; i>0; i--)
-            { 
-              lcd.setCursor(9, 0);
-              lcd.print(i);
-              delay(1000);
+            for(int i2=255;i2>0;i2--)
+            {
+              pixels.setPixelColor(i1, pixels.Color(0,i2,0)); // Set color
+              pixels.show();  // Send updated pixel color value to hardware
             }
-            lcd.clear();
-            break;
+            delay(10);  // Delay between each pixel
+          }
+          // Fade up leds
+          for(int i1=0;i1<numPixel;i1++)
+          {
+            for(int i2=0;i2<255;i2++)
+            {
+              pixels.setPixelColor(i1, pixels.Color(0,i2,0)); // Set color
+              pixels.show();  // Send updated pixel color value to hardware
             }
-          }*/
+            delay(10);  // Delay between each pixel
+          }
+        }
       }
     }
     
@@ -496,7 +539,7 @@ void loop()
       motor(pid_output, angle);
 
 
-      int motorPower = int(abs(100.0/Umax) * pid_output);  //Shows motor output in % of total
+      int motorPower = int(abs(100.0f/Umax) * pid_output);  //Shows motor output in % of total
       int offset = int(setpoint - angle); //Shows error from setpoint in degrees
 
 
