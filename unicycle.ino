@@ -51,15 +51,18 @@
   
   * Reset button
   * SIGNAL  D4          D4
+  * SIGNAL_HIGH D12
   * LED     D5          D5
   * GND     GND         GND
   
-  * Voltage divider 0-24v -> 0-5v ( R1: 380k, R2: 100k)
+  * Voltage divider 0-24v -> 0-5v ( R1: 470k, R2: 100k + 10k)
   * Vout    A3          A3    Vout + from battery
 
   ***** Connections end *****
 
-  Credits MPU6050 part: http://www.pitt.edu/~mpd41/Angle.ino
+  Credits 
+  MPU6050 code: http://www.pitt.edu/~mpd41/Angle.ino
+  Softwarefilter: http://www.elcojacobs.com/eleminating-noise-from-sensor-readings-on-arduino-with-digital-filtering/
 
 */
 
@@ -75,7 +78,7 @@ LiquidCrystal_I2C lcd(0x3F,16,2);  // set the LCD address to 0x27 for a 16 chars
 // PID constants
 float kp = 60.0;
 float ki = 0.0; 
-float kd = 7.0;
+float kd = 4.0;
 
 
 
@@ -94,7 +97,7 @@ int min_roll = 8; // Degrees from setpoint before motor will stop
 //Pushback function
 float pushback_angle = 4.0;  // Degrees where pushback should activate *Must be less than max_roll*
 float pushback_range = 1.0;  // Degrees from setpoint where pushback deactivates if activated
-float pushback_factor = 1.3;  // How much increase in PID when pushback
+float pushback_factor = 1.2;  // How much increase in PID when pushback
 bool pushback_enable = false; // Default pushback_enable value *DONT CHANGE*
 
 bool motor_direction_forward = false;  // Set motor direction forward/reverse
@@ -133,8 +136,9 @@ int R_EN = 7; // Forward drive enable input
 int L_EN = 8; // Reverse drive enable input
 
 // Reset button
-int reset_button_pin = 5;
-int reset_button_led_pin = 6;
+int reset_button_pin = 4;
+int reset_button_led_pin = 5;
+int reset_button_constant_high = 12;
 bool reset_button_led_state = true;
 int led_counter = 0;
 
@@ -158,6 +162,9 @@ Adafruit_NeoPixel pixels = Adafruit_NeoPixel(numPixel, ledPin, NEO_GRB + NEO_KHZ
 
 
 int buzzerPin = 11;
+
+int battery = 0;
+int batteryCounter = 0;
 
 
 // ***** PID function *****
@@ -287,13 +294,59 @@ float get_angle()
 
 
 
+// ***** Softwarefilter for digital sensors *****
+float medianfilter(int sensorpin){
+   // read multiple values and sort them to take the mode
+   int sortedValues[100];
+   for(int i=0;i<100;i++){
+     int value = analogRead(sensorpin);
+     int j;
+     if(value<sortedValues[0] || i==0){
+        j=0; //insert at first position
+     }
+     else{
+       for(j=1;j<i;j++){
+          if(sortedValues[j-1]<=value && sortedValues[j]>=value){
+            // j is insert position
+            break;
+          }
+       }
+     }
+     for(int k=i;k>j;k--){
+       // move all values higher than current reading up one position
+       sortedValues[k]=sortedValues[k-1];
+     }
+     sortedValues[j]=value; //insert current reading
+   }
+   //return scaled mode of 10 values
+   float returnval = 0;
+   for(int i=100/2-5;i<(100/2+5);i++){
+     returnval +=sortedValues[i];
+   }
+   returnval = returnval/10;
+   return returnval*1100/1023;
+}
+
+
+
 // ***** Read battery voltage *****
 int read_voltage()
 {
   // Read battery voltage input and convert to 0-24v
-  int battery_voltage = map(analogRead(battery_voltage_input), 0, 1023, 0, 26);
-  
-  return battery_voltage;
+  int battery_Read = medianfilter(battery_voltage_input);
+
+  float battery_voltage = (5.0 / 1023.0) * battery_Read * 4.92 * 10.0; // Calculate real voltage value * 10
+
+  int batter_remap = map(battery_voltage, 204, 252, 0, 100);  // Remap voltage to 0-100%
+
+  if(batter_remap <= 10)
+  {
+    tone(buzzerPin, int(140*batter_remap), 500);
+  }
+
+  Serial.println(battery_voltage/10);
+
+  return batter_remap;
 }
 
 
@@ -430,6 +483,8 @@ void setup()
   // ***** Reset button *****
   pinMode(reset_button_pin, INPUT);
   pinMode(reset_button_led_pin, OUTPUT);
+  pinMode(reset_button_constant_high, OUTPUT);
+  digitalWrite(reset_button_constant_high, HIGH);
   
 
   // ***** Begin serial port *****
@@ -447,14 +502,39 @@ void setup()
   }
 
   // Light up neopixel ledstrip
-  for(int i=0;i<numPixel;i++)
+  for(int i1=0;i1<8;i1++)
   {
-    pixels.setPixelColor(i, pixels.Color(0,255,0)); // Set color
-    pixels.show();  // Send updated pixel color value to hardware
-    delay(0);  // Delay between each pixel
+    for(int i2=0;i2<255;i2++)
+    {
+      pixels.setPixelColor(i1, pixels.Color(0,i2,0)); // Set color
+      pixels.show();  // Send updated pixel color value to hardware
+    }
+    delay(5);  // Delay between each pixel
+  }
+  for(int i1=8;i1<numPixel;i1++)
+  {
+    for(int i2=0;i2<255;i2++)
+    {
+      pixels.setPixelColor(i1, pixels.Color(i2,i2,i2)); // Set color
+      pixels.show();  // Send updated pixel color value to hardware
+    }
+    delay(5);  // Delay between each pixel
   }
 
+
   tone(buzzerPin, 1000, 500);
+
+  
+  battery = read_voltage();
+
+
+  // Turn on light in reset button
+  for(int i=0;i<255;i++)
+  {
+    analogWrite(reset_button_led_pin, i);
+    delay(2);
+  }
+    
   
   // Waiting for upright position
   lcd.clear();
@@ -469,6 +549,8 @@ void setup()
     lcd.print("   ");
   }
   lcd.clear();
+
+  tone(buzzerPin, 1300, 1000);  
 }
 
 
@@ -503,29 +585,28 @@ void loop()
         lcd.setCursor(0, 1);
         lcd.print(" Please reset...");
 
-        tone(buzzerPin, 1000, 2000);
+        tone(buzzerPin, 1300, 4000); 
           
         while(1)
-        {
+        { 
+          
           // Fade down leds
-          for(int i1=0;i1<numPixel;i1++)
+          for(int i1=0;i1<8;i1++)
           {
             for(int i2=255;i2>0;i2--)
             {
               pixels.setPixelColor(i1, pixels.Color(0,i2,0)); // Set color
               pixels.show();  // Send updated pixel color value to hardware
             }
-            delay(10);  // Delay between each pixel
           }
           // Fade up leds
-          for(int i1=0;i1<numPixel;i1++)
+          for(int i1=0;i1<8;i1++)
           {
             for(int i2=0;i2<255;i2++)
             {
-              pixels.setPixelColor(i1, pixels.Color(0,i2,0)); // Set color
+              pixels.setPixelColor(i1, pixels.Color(i2,0,0)); // Set color
               pixels.show();  // Send updated pixel color value to hardware
             }
-            delay(10);  // Delay between each pixel
           }
         }
       }
@@ -568,37 +649,46 @@ void loop()
       }
 
       
+      batteryCounter++;
+      
+      if(batteryCounter > 100)  // Update batterystatus every second
+      {
+        battery = read_voltage();
+        batteryCounter = 0;
+      }
+
+      
       // ***** LCD output *****
         
       // Battery monitor
-      lcd.setCursor(0, 0);
+      lcd.setCursor(8, 0);
       lcd.print("Pwr:");
-      lcd.print(motorPower);
+      lcd.print(abs(motorPower));
       lcd.print("% ");
       
       //Max power value
-      lcd.setCursor(8, 0);
-      lcd.print("MaxP:");
-      lcd.print(maxOutput);
-      lcd.print("%  ");
+      lcd.setCursor(0, 0);
+      lcd.print("B:");
+      lcd.print(battery);
+      lcd.print("%");
       
       // Angle offset
-      lcd.setCursor(0, 1);
+      lcd.setCursor(8, 1);
       lcd.print("Angle:");
-      lcd.print(offset);
-      lcd.print(" ");
+      lcd.print(abs(offset));
+      lcd.print("  ");
 
       //Max angle value
-      lcd.setCursor(8, 1);
-      lcd.print("MaxAng:");
+      lcd.setCursor(0, 1);
+      lcd.print("MxA:");
       lcd.print(maxAngle);
 
      
       // DEBUG Serial display
-      Serial.print(setpoint);
+      /*Serial.print(setpoint);
       Serial.print("\t");
       Serial.println(error + setpoint);
-      
+      */
           
       // ***** LCD output end *****
 
