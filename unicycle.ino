@@ -4,7 +4,7 @@
   ******* Self balancing unicycle *******
   ***************************************
 
-  Part of final year project in electrical engineering @ Høyskolen i Oslo Akershus, Norway.
+  Final year project in electrical engineering @ Høyskolen i Oslo Akershus, Norway.
   By Jon-Eivind Stranden & Nicholai Kaas Iversen © 2016.
   https://github.com/joneivind
   
@@ -111,8 +111,8 @@
 ////////////////////////////////////////////
 
 
-      float pushback_angle = 2.0;  // Degrees where pushback should activate *Must be less than max_roll*
-      float pushback_range = 2.0;  // Degrees from setpoint where pushback deactivates if activated
+      float pushback_angle = 1.8;  // Degrees where pushback should activate *Must be less than max_roll*
+      float pushback_range = 1.8;  // Degrees from setpoint where pushback deactivates if activated
       int expo = 0;
       
       bool motor_direction_forward = false;  // Set motor direction forward/reverse
@@ -135,7 +135,7 @@
       float error = 0.0; // Sum error
       float last_error = 0.0; // Store last error sum
       
-      int output = 0; // PID output
+      int output = 0; // PID output + expo
       int pid_output = 0;
 
 
@@ -281,14 +281,28 @@
 
       
         // Limit output
-        if (output > Umax) 
+        if (output > 255) 
         {
-          output = Umax;
+          output = 255;
         }
-        else if (output < Umin) 
+        else if (output < -255) 
         {
-          output = Umin;
+          output = -255;
         }
+
+
+        /*total_output = output + expo;
+
+
+        // Limit output
+        if (total_output > 255) 
+        {
+          total_output = 255;
+        }
+        else if (total_output < -255) 
+        {
+          total_output = -255;
+        }*/
 
         
         last_error = error; // Remember error for next time
@@ -414,14 +428,15 @@
 
 
 ////////////////////////////////////////////
-// Mediafilter for voltage divider /////////
+// Medianfilter ////////////////////////////
 ////////////////////////////////////////////
       
       
+      #define NUM_READS 100
       float medianfilter(int sensorpin){
          // read multiple values and sort them to take the mode
-         int sortedValues[10];
-         for(int i=0;i<10;i++){
+         int sortedValues[NUM_READS];
+         for(int i=0;i<NUM_READS;i++){
            int value = analogRead(sensorpin);
            int j;
            if(value<sortedValues[0] || i==0){
@@ -443,7 +458,7 @@
          }
          //return scaled mode of 10 values
          float returnval = 0;
-         for(int i=10/2-5;i<(10/2+5);i++){
+         for(int i=NUM_READS/2-5;i<(NUM_READS/2+5);i++){
            returnval +=sortedValues[i];
          }
          returnval = returnval/10;
@@ -591,12 +606,12 @@
         {
           pixels.setPixelColor(i1, pixels.Color(0,55,0)); // Set color
           pixels.setPixelColor(7-i1, pixels.Color(0,55,0)); // Set color
-          pixels.setPixelColor(i1+8, pixels.Color(155,155,155)); // Set color
+          pixels.setPixelColor(i1+8, pixels.Color(100,100,100)); // Set color
           pixels.show();  // Send updated pixel color value to hardware
         }
         for(int i1=12;i1<numPixel;i1++)
         {
-          pixels.setPixelColor(i1, pixels.Color(155,155,155)); // Set color
+          pixels.setPixelColor(i1, pixels.Color(100,100,100)); // Set color
           pixels.show();  // Send updated pixel color value to hardware
         }
       
@@ -642,7 +657,7 @@
       
       void loop()
       { 
-        if ((millis() - main_loop_timer) > (5.0f/1000.0f * 1000)) // Run loop @ 100hz (1/100hz = 10ms) - 1/400hz = 2.5ms
+        if ((millis() - main_loop_timer) > (2.0f/1000.0f * 1000)) // Run loop @ 100hz (1/100hz = 10ms) - 1/400hz = 2.5ms - 1/500hz = 2ms
         {
           main_loop_timer = millis(); // Reset main loop timer
 
@@ -784,9 +799,9 @@
             Serial.print("\t");
             Serial.println(error + setpoint);*/
 
-             Serial.print(output);
+             Serial.print(pid_output);
           Serial.print("\t");
-          Serial.println(compAngleX);
+          Serial.println(offsetFine);
              
             //Serial.print("\t");
             //Serial.println(angle);
