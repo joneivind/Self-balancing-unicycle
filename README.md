@@ -15,4 +15,4 @@ Final year project in electrical engineering @ Høyskolen i Oslo Akershus, Norwa
 * Motor requirement at least 500W
 * Batteries used are 5200mAh 3s lipo x 2 = 25.2V max
 
-By Jon-Eivind Stranden & Nicholai Kaas Iversen © 2016.
+**By Jon-Eivind Stranden & Nicholai Kaas Iversen © 2016.**
