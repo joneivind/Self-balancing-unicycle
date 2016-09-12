@@ -1,5 +1,5 @@
-# Self-balancing-unicycle
-Self balancing unicycle Electronics project 2016
+# Self balancing unicycle
+Electronics project - Høyskolen i Oslo og Akershus 2016
 ## Features
 
 * Build for Arduino Nano / Uno / Mega (Not tested)
