@@ -1,5 +1,7 @@
 # Self balancing unicycle
-Electronics project - Høyskolen i Oslo og Akershus 2016
+Final year project in electrical engineering @ Høyskolen i Oslo Akershus, Norway.
+
+By Jon-Eivind Stranden & Nicholai Kaas Iversen © 2016.
 ## Features
 
 * Build for Arduino Nano / Uno / Mega (Not tested)
