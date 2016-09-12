@@ -111,9 +111,9 @@
 ////////////////////////////////////////////
 
 
-      float pushback_angle = 1.9;  // Degrees where pushback should activate *Must be less than max_roll*
-      float pushback_range = 1.9;  // Degrees from setpoint where pushback deactivates if activated
-      int expo = 0;
+      float pushback_angle = 2.0;  // Degrees where pushback should activate *Must be less than max_roll*
+      float pushback_range = 2.0;  // Degrees from setpoint where pushback deactivates if activated
+      int expo = 0; // Standard expo value *DONT CHANGE*
       
       bool motor_direction_forward = false;  // Set motor direction forward/reverse
       
@@ -253,19 +253,30 @@
       
         error = setpoint - angle; // Calculate error, e=SP-Y
 
-      
+        
         // Pushback function if near max roll
-        if (angle > (setpoint + pushback_angle) && expo >= -255) 
+        if (angle > (setpoint + pushback_angle + 0.5) && expo >= -255) 
         {
           expo = -pow(10, abs(error) - pushback_angle);
         }
-        else if (angle < (setpoint - pushback_angle) && expo <= 255) 
+        else if (angle < (setpoint - pushback_angle - 0.5) && expo <= 255) 
         {
           expo = pow(10, abs(error) - pushback_angle);
         }
         else
         {
           expo = 0;
+        }
+
+        // Pushback function 2.0
+        if (angle > (setpoint + pushback_angle)) 
+        {
+          float test = 81.0 + pushback_angle - angle;
+          setpoint = 81.0 + test;
+        }
+        else
+        {
+          setpoint = 81.0;
         }
 
       
@@ -282,8 +293,8 @@
         d_term = kd * ((error - last_error) / delta_t); // Derivative
 
       
-        output = kp * (p_term + i_term + d_term) + expo; // Calculate output
-
+        //output = kp * (p_term + i_term + d_term) + expo; // Calculate output
+        output = kp * (p_term + i_term + d_term); // Calculate output
       
         // Limit output
         if (output > 255) 
@@ -777,7 +788,7 @@
               
             // Offset monitor
             lcd.setCursor(0, 1);
-            lcd.print("Err:");
+            lcd.print("E:");
             lcd.print(offsetFine);
             lcd.print(" ");
             
@@ -788,19 +799,20 @@
             lcd.print("v (");
             lcd.print(map(battery*10, 206, 252, 0, 100));
             lcd.print("%)  ");
-            
+           
+            /*
             // P value
             lcd.setCursor(11, 1);
             lcd.print("PD:");
             lcd.print(pid_output*(-1));
             lcd.print("  ");
-      
-            /*
+            */
+            
             //D value
             lcd.setCursor(9, 1);
-            lcd.print("D:");
-            lcd.print(kd);
-            */
+            lcd.print("SP:");
+            lcd.print(setpoint);
+            
            
             // DEBUG Serial display
             /*Serial.print(setpoint);
