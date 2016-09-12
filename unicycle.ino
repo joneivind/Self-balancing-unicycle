@@ -111,8 +111,8 @@
 ////////////////////////////////////////////
 
 
-      float pushback_angle = 1.8;  // Degrees where pushback should activate *Must be less than max_roll*
-      float pushback_range = 1.8;  // Degrees from setpoint where pushback deactivates if activated
+      float pushback_angle = 1.9;  // Degrees where pushback should activate *Must be less than max_roll*
+      float pushback_range = 1.9;  // Degrees from setpoint where pushback deactivates if activated
       int expo = 0;
       
       bool motor_direction_forward = false;  // Set motor direction forward/reverse
@@ -156,14 +156,6 @@
 
       int main_loop_timer = millis(); // Dt timer main loop 
       int lastTime = millis(); //Dt timer PID loop
-
-
-////////////////////////////////////////////
-// Input voltage divider ///////////////////
-////////////////////////////////////////////
-
-
-      int battery_voltage_input = A3; // Sensor value 0-1023
 
 
 ////////////////////////////////////////////
@@ -225,15 +217,28 @@
       Adafruit_NeoPixel pixels = Adafruit_NeoPixel(numPixel, ledPin, NEO_GRB + NEO_KHZ800);
 
 
+
+////////////////////////////////////////////
+// Battery Voltage Divider /////////////////
+////////////////////////////////////////////
+
+
+      int battery_loop_counter = 0;
+      int batteryPin = A3; // Sensor value 0-1023
+      float divider_output = 4.04; // Measured output voltage on full battery
+      float vOut = 0.0; // Output voltage
+      float vIn = 0.0; // Calculated input voltage
+      float R1 = 472000.0; // R1 resistor (470K)
+      float R2 = 111000.0; // R2 resistor (10K + 100K)
+      float battery = 0.0;
+
+
 ////////////////////////////////////////////
 // Misc ////////////////////////////////////
 ////////////////////////////////////////////
+
       
       int buzzerPin = 11;
-      
-      float battery = 0.0;
-      int batteryCounter = 0;
-      int BattyLedOn = 1;
 
 
 ////////////////////////////////////////////
@@ -432,7 +437,7 @@
 ////////////////////////////////////////////
       
       
-      #define NUM_READS 100
+      #define NUM_READS 10
       float medianfilter(int sensorpin){
          // read multiple values and sort them to take the mode
          int sortedValues[NUM_READS];
@@ -474,14 +479,14 @@
       float read_voltage()
       {
         // Read battery voltage input and convert to 0-24v
-        int battery_Read = medianfilter(battery_voltage_input);
+        int battery_Read = medianfilter(batteryPin);
       
-        float battery_voltage = (5.0 / 1023.0) * battery_Read * 4.5 * 10.0; // Calculate real voltage value * 10
+        vOut = (battery_Read * divider_output) / 1023.0; // Output voltage divider value
+        vIn = vOut / (R2 / (R1 + R2)); // Input calculation
       
-        int battery_remap = map(battery_voltage, 0, 252, 0, 100);  // Remap voltage to 0-100%
-        int battery_remap_led = map(battery_voltage, 204, 234, 0, 4);  // Remap voltage to 0-100%
-        
-        if(battery_voltage <= 21.6)
+        //int battery_remap = map(vIn*10, 0, 252, 0, 100);  // Remap voltage to 0-100%
+
+        if(vIn <= 21.6)
         {
           for(int i1=8;i1<numPixel;i1++)
           {
@@ -490,7 +495,7 @@
           pixels.show();  // Send updated pixel color value to hardware
         }
       
-        return battery_voltage;
+        return vIn;
       }
 
 
@@ -506,11 +511,11 @@
             
         // Initialize lcd display
         lcd.begin();
-        lcd.clear(); // Clear display
+        lcd.clear(); // Clear display        
         lcd.setCursor(0, 0);
         lcd.print("  SB Unicycle  ");
         lcd.setCursor(0, 1);
-        lcd.print("  Booting...   ");
+        lcd.print("   Booting...  ");
         lcd.backlight(); // Turn on backlight
       
       
@@ -564,7 +569,7 @@
   
       
         // Battery voltage
-        pinMode(battery_voltage_input, INPUT);
+        pinMode(batteryPin, INPUT);
 
 
         // Change PWM frequency (Affects servo timer)
@@ -604,14 +609,14 @@
         
         for(int i1=0;i1<4;i1++)
         {
-          pixels.setPixelColor(i1, pixels.Color(0,55,0)); // Set color
-          pixels.setPixelColor(7-i1, pixels.Color(0,55,0)); // Set color
-          pixels.setPixelColor(i1+8, pixels.Color(100,100,100)); // Set color
+          pixels.setPixelColor(i1, pixels.Color(0,200,0)); // Set color
+          pixels.setPixelColor(7-i1, pixels.Color(0,200,0)); // Set color
+          pixels.setPixelColor(i1+8, pixels.Color(200,200,200)); // Set color
           pixels.show();  // Send updated pixel color value to hardware
         }
         for(int i1=12;i1<numPixel;i1++)
         {
-          pixels.setPixelColor(i1, pixels.Color(100,100,100)); // Set color
+          pixels.setPixelColor(i1, pixels.Color(200,200,200)); // Set color
           pixels.show();  // Send updated pixel color value to hardware
         }
       
@@ -629,20 +634,20 @@
           delay(2);
         }
         */
-          
         
-        // Waiting for upright position
         lcd.clear();
+        
         while(int(setpoint - get_angle()) != 0)
         {
           get_angle();
-          lcd.setCursor(0, 0);
-          lcd.print("Waiting for pos.");
-          lcd.setCursor(0, 1);
+          lcd.setCursor(2, 0);
+          lcd.print("Tilt to zero       ");
+          lcd.setCursor(3, 1);
           lcd.print("Offset: ");
           lcd.print(int(get_angle() - setpoint));
           lcd.print("   ");
         }
+
         lcd.clear();
       
         //tone(buzzerPin, 1300, 1000);  
@@ -759,52 +764,55 @@
             }
       
             
-            batteryCounter++;
+            battery_loop_counter++;
             
-            if(batteryCounter > 100)  // Update batterystatus every second
+            if(battery_loop_counter > 100)  // Update batterystatus every second
             {
               battery = read_voltage();
-              batteryCounter = 0;
+              battery_loop_counter = 0;
             }
       
             
             // LCD output
               
             // Offset monitor
-            lcd.setCursor(9, 0);
-            lcd.print("O:");
+            lcd.setCursor(0, 1);
+            lcd.print("Err:");
             lcd.print(offsetFine);
             lcd.print(" ");
             
             // Battery monitor
             lcd.setCursor(0, 0);
-            lcd.print("B:");
-            lcd.print(battery/10.0f);
-            lcd.print("v");
+            lcd.print("Bat:");
+            lcd.print(battery);
+            lcd.print("v (");
+            lcd.print(map(battery*10, 206, 252, 0, 100));
+            lcd.print("%)  ");
             
             // P value
-            lcd.setCursor(0, 1);
-            lcd.print("P:");
-            lcd.print(kp);
+            lcd.setCursor(11, 1);
+            lcd.print("PD:");
+            lcd.print(pid_output*(-1));
             lcd.print("  ");
       
+            /*
             //D value
             lcd.setCursor(9, 1);
             lcd.print("D:");
             lcd.print(kd);
-      
+            */
            
             // DEBUG Serial display
             /*Serial.print(setpoint);
             Serial.print("\t");
             Serial.println(error + setpoint);*/
 
-             Serial.print(pid_output);
-          Serial.print("\t");
-          Serial.println(offsetFine);
+            //Serial.print(pid_output);
+            //Serial.print("\t");
+            //Serial.println(offsetFine);
              
             //Serial.print("\t");
-            //Serial.println(angle);
+            //Serial.println(battery);
                 
             // ***** LCD output end *****
       
