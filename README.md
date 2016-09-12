@@ -1,7 +1,6 @@
 # Self balancing unicycle
 Final year project in electrical engineering @ Høyskolen i Oslo Akershus, Norway.
 
-By Jon-Eivind Stranden & Nicholai Kaas Iversen © 2016.
 ## Features
 
 * Build for Arduino Nano / Uno / Mega (Not tested)
@@ -15,3 +14,5 @@ By Jon-Eivind Stranden & Nicholai Kaas Iversen © 2016.
 * Support for WS2812B led strip
 * Motor requirement at least 500W
 * Batteries used are 5200mAh 3s lipo x 2 = 25.2V max
+
+By Jon-Eivind Stranden & Nicholai Kaas Iversen © 2016.
