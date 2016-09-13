@@ -1,70 +1,85 @@
-/*
+      /*
+    
+      ///////////////////////////////////////
+      ******* Self balancing unicycle *******
+      ///////////////////////////////////////
+    
+      Final year project in electrical engineering @ Høyskolen i Oslo Akershus, Norway.
+      By Jon-Eivind Stranden & Nicholai Kaas Iversen © 2016.
+      https://github.com/joneivind
 
-  ***************************************
-  ******* Self balancing unicycle *******
-  ***************************************
+      
+      ///////////////////////
+      ***** Connections *****
+      ///////////////////////
+      
+      * SENSOR   UNO/NANO   MEGA2560 (Same if not specified)
+      
+      ///////////////////////////
+      // MPU6050 gyro/acc (I2C)//
+      ///////////////////////////
+      * VCC      +5v        +5v
+      * GND      GND        GND
+      * SCL      A5         C21
+      * SDA      A4         C20
+      * Int      D2         D2      (Optional)
+      
+      //////////////////////////
+      // Motor Driver BTS7960 //
+      //////////////////////////
+      * VCC     +5v
+      * GND     GND
+      * RPWM    D9                  Forward pwm input
+      * LPWM    D10                 Reverse pwm input
+      * R_EN    D7                  Forward drive enable input, can be bridged with L_EN
+      * L_EN    D8                  Reverse drive enable input, can be bridged with R_EN
+      * R_IS    -                   Current alarm, not used
+      * L_IS    -                   Current alarm, not used
+      * B+      Battery+
+      * B-      Battery-
+      * M+      Motor+
+      * M-      Motor-
 
-  Final year project in electrical engineering @ Høyskolen i Oslo Akershus, Norway.
-  By Jon-Eivind Stranden & Nicholai Kaas Iversen © 2016.
-  https://github.com/joneivind
-  
+      ////////////////////////////////////////
+      // 16x2 LCD display with I2C backpack //
+      ////////////////////////////////////////
+      * VCC     +5v         
+      * GND     GND         
+      * SCL     A5          C21
+      * SDA     A4          C20
+      
+      //////////////
+      // Ledstrip //
+      //////////////
+      * VCC     +5v 
+      * GND     GND
+      * SIGNAL  D6
 
-  ***** Connections *****
-  
-  * SENSOR   UNO/NANO   MEGA2560
-  
-  * MPU6050 gyro/acc (I2C)
-  * VCC      +5v        +5v
-  * GND      GND        GND
-  * SCL      A5         C21
-  * SDA      A4         C20
-  * Int      D2         D2      (Optional)
-  
-  * Motor Driver BTS7960
-  * VCC     +5v
-  * GND     GND
-  * RPWM    D9          Forward pwm input
-  * LPWM    D10         Reverse pwm input
-  * R_EN    D7          Forward drive enable input, can be bridged with L_EN
-  * L_EN    D8          Reverse drive enable input, can be bridged with R_EN
-  * R_IS    -           Current alarm, not used
-  * L_IS    -           Current alarm, not used
-  * B+      Battery+
-  * B-      Battery-
-  * M+      Motor+
-  * M-      Motor-
-  
-  * 16x2 LCD display with I2C backpack
-  * VCC     +5v         +5v
-  * GND     GND         GND
-  * SCL     A5          C21
-  * SDA     A4          C20
+      ////////////
+      // Buzzer //
+      ////////////
+      * SIGNAL(+) D11
+      * GND     GND
 
-  * Ledstrip
-  * VCC     +5v
-  * GND     GND
-  * SIGNAL  D6
+      //////////////////
+      // Reset button //
+      //////////////////
+      * SIGNAL  D4          D4
+      * SIGNAL_HIGH D12
+      * LED     D5          D5
+      * GND     GND         GND
 
-  * Buzzer
-  * SIGNAL(+) D11
-  * GND     GND
-  
-  * Reset button
-  * SIGNAL  D4          D4
-  * SIGNAL_HIGH D12
-  * LED     D5          D5
-  * GND     GND         GND
-  
-  * Voltage divider 0-24v -> 0-5v ( R1: 470k, R2: 100k + 10k)
-  * Vout    A3          A3    Vout + from battery
+      ///////////////////////////////////////////////////////////////
+      // Voltage divider 0-24v -> 0-5v ( R1: 470k, R2: 100k + 10k) //
+      ///////////////////////////////////////////////////////////////
+      * Vout    A3                  Vout + from battery
 
-  ***** Connections end *****
+    
+      *** Credits *** 
+      MPU6050 code: http://www.pitt.edu/~mpd41/Angle.ino
+      Softwarefilter: http://www.elcojacobs.com/eleminating-noise-from-sensor-readings-on-arduino-with-digital-filtering/
 
-  Credits 
-  MPU6050 code: http://www.pitt.edu/~mpd41/Angle.ino
-  Softwarefilter: http://www.elcojacobs.com/eleminating-noise-from-sensor-readings-on-arduino-with-digital-filtering/
-
-*/
+      */
 
 
 ////////////////////////////////////////////
@@ -78,7 +93,6 @@
       #include <Adafruit_NeoPixel.h>
       #include <avr/power.h>
       #include <PWM.h> // PWM frequecy alternator
-      
       LiquidCrystal_I2C lcd(0x3F,16,2);  // set the LCD address to 0x27 for a 16 chars and 2 line display
 
 
@@ -87,7 +101,7 @@
 ////////////////////////////////////////////
 
 
-      float kp = 50.0;
+      float kp = 55.0;
       float ki = 0.0; 
       float kd = 7.0;
 
@@ -103,7 +117,7 @@
       bool ki_enable = false; //Enables integral regulator if true, disabled if false
       
       float deadband = 0.0; // +-degrees of deadband around setpoint where motor output is zero
-      int max_roll = 15; // Degrees from setpoint before motor will stop
+      int max_roll = 20; // Degrees from setpoint before motor will stop
       int min_roll = 8; // Degrees from setpoint before motor will stop
 
 
@@ -112,12 +126,12 @@
 ////////////////////////////////////////////
 
 
-      float pushback_angle = 2.5;  // Degrees where pushback should activate *Must be less than max_roll*
-      float pushback_range = 2.5;  // Degrees from setpoint where pushback deactivates if activated
-      int expo = 0; // Standard expo value *DONT CHANGE*
-      
       bool motor_direction_forward = false;  // Set motor direction forward/reverse
       
+      float pushback_angle = 2.0;  // Degrees where pushback should activate *Must be less than max_roll*
+      float pushback_range = 2.0;  // Degrees from setpoint where pushback deactivates if activated
+      
+      int throttle_expo = 0; // Standard throttle_expo value *DONT CHANGE*
       bool fall_detection_trigger = false; // Default value fall detection *DONT CHANGE*
 
 
@@ -136,7 +150,7 @@
       float error = 0.0; // Sum error
       float last_error = 0.0; // Store last error sum
       
-      int output = 0; // PID output + expo
+      int output = 0; // PID output + throttle_expo
       int pid_output = 0;
 
 
@@ -145,9 +159,9 @@
 ////////////////////////////////////////////
 
 
-      bool enableStats = false;
-      int maxOutput = 0;
-      int maxAngle = 0;
+      bool enableStats = false; // Enable stats - turns true when angle is zero 
+      int maxOutput = 0; // Shows max pid output
+      int maxAngle = 0; // Shows max angle
 
 
 ////////////////////////////////////////////
@@ -169,7 +183,7 @@
       int R_EN = 7; // Forward drive enable input
       int L_EN = 8; // Reverse drive enable input
       
-      int32_t frequency = 16000; //frequency (in Hz)
+      int32_t frequency = 2000; // Motor frequency (in Hz)
 
 
 ////////////////////////////////////////////
@@ -257,18 +271,18 @@
         error = setpoint - angle; // Calculate error, e=SP-Y
 
         
-        // Pushback function if near max roll
-        if (angle > (setpoint + pushback_angle) && expo >= -255) 
+        // Throttle throttle_expo function if near max roll
+        if (angle > (setpoint + pushback_angle) && throttle_expo >= -255) 
         {
-          expo = -pow(10, abs(error) - pushback_angle);
+          throttle_expo = -pow(10, abs(error) - pushback_angle);
         }
-        else if (angle < (setpoint - pushback_angle) && expo <= 255) 
+        else if (angle < (setpoint - pushback_angle) && throttle_expo <= 255) 
         {
-          expo = pow(10, abs(error) - pushback_angle);
+          throttle_expo = pow(10, abs(error) - pushback_angle);
         }
         else
         {
-          expo = 0;
+          throttle_expo = 0;
         }
 
         /*
@@ -287,10 +301,11 @@
       
        // Calculate PID
         p_term = error;  // Propotional
+
         
-        if (ki_enable == true) 
+        if (ki_enable == true) // Integral
         {  
-          i_term += (ki * error * delta_t); // Integral
+          i_term += (ki * error * delta_t);
         }
         else i_term = 0; // Disable integral regulator
 
@@ -298,8 +313,8 @@
         d_term = kd * ((error - last_error) / delta_t); // Derivative
 
       
-        output = kp * (p_term + i_term + d_term) + expo; // Calculate output
-        //output = kp * (p_term + i_term + d_term); // Calculate output
+        output = kp * (p_term + i_term + d_term) + throttle_expo; // Calculate output
+
       
         // Limit output
         if (output > 255) 
@@ -310,20 +325,6 @@
         {
           output = -255;
         }
-
-
-        /*total_output = output + expo;
-
-
-        // Limit output
-        if (total_output > 255) 
-        {
-          total_output = 255;
-        }
-        else if (total_output < -255) 
-        {
-          total_output = -255;
-        }*/
 
         
         last_error = error; // Remember error for next time
@@ -829,21 +830,6 @@
             lcd.setCursor(9, 1);
             lcd.print("SP:");
             lcd.print(setpoint);
-            
-           
-            // DEBUG Serial display
-            /*Serial.print(setpoint);
-            Serial.print("\t");
-            Serial.println(error + setpoint);*/
-
-            //Serial.print(pid_output);
-            //Serial.print("\t");
-            //Serial.println(offsetFine);
-             
-            //Serial.print("\t");
-            //Serial.println(battery);
-                
-            // ***** LCD output end *****
       
           }
         }
