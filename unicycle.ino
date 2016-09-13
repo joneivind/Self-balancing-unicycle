@@ -77,6 +77,7 @@
       #include <LiquidCrystal_I2C.h>
       #include <Adafruit_NeoPixel.h>
       #include <avr/power.h>
+      #include <PWM.h> // PWM frequecy alternator
       
       LiquidCrystal_I2C lcd(0x3F,16,2);  // set the LCD address to 0x27 for a 16 chars and 2 line display
 
@@ -111,8 +112,8 @@
 ////////////////////////////////////////////
 
 
-      float pushback_angle = 2.0;  // Degrees where pushback should activate *Must be less than max_roll*
-      float pushback_range = 2.0;  // Degrees from setpoint where pushback deactivates if activated
+      float pushback_angle = 2.5;  // Degrees where pushback should activate *Must be less than max_roll*
+      float pushback_range = 2.5;  // Degrees from setpoint where pushback deactivates if activated
       int expo = 0; // Standard expo value *DONT CHANGE*
       
       bool motor_direction_forward = false;  // Set motor direction forward/reverse
@@ -167,6 +168,8 @@
       int LPWM = 10; // Reverse pwm input
       int R_EN = 7; // Forward drive enable input
       int L_EN = 8; // Reverse drive enable input
+      
+      int32_t frequency = 16000; //frequency (in Hz)
 
 
 ////////////////////////////////////////////
@@ -255,11 +258,11 @@
 
         
         // Pushback function if near max roll
-        if (angle > (setpoint + pushback_angle + 0.5) && expo >= -255) 
+        if (angle > (setpoint + pushback_angle) && expo >= -255) 
         {
           expo = -pow(10, abs(error) - pushback_angle);
         }
-        else if (angle < (setpoint - pushback_angle - 0.5) && expo <= 255) 
+        else if (angle < (setpoint - pushback_angle) && expo <= 255) 
         {
           expo = pow(10, abs(error) - pushback_angle);
         }
@@ -268,6 +271,7 @@
           expo = 0;
         }
 
+        /*
         // Pushback function 2.0
         if (angle > (setpoint + pushback_angle)) 
         {
@@ -278,6 +282,7 @@
         {
           setpoint = 81.0;
         }
+        */
 
       
        // Calculate PID
@@ -293,8 +298,8 @@
         d_term = kd * ((error - last_error) / delta_t); // Derivative
 
       
-        //output = kp * (p_term + i_term + d_term) + expo; // Calculate output
-        output = kp * (p_term + i_term + d_term); // Calculate output
+        output = kp * (p_term + i_term + d_term) + expo; // Calculate output
+        //output = kp * (p_term + i_term + d_term); // Calculate output
       
         // Limit output
         if (output > 255) 
@@ -339,21 +344,25 @@
         {
           if (angle > (setpoint + deadband))
           { 
-            analogWrite(LPWM, abs(pwm)); // Drive backward
+            //analogWrite(LPWM, abs(pwm)); // Drive backward
+            pwmWrite(LPWM, abs(pwm)); // Write to motor with new frequecy
           }
           else if (angle < (setpoint - deadband))
           { 
-            analogWrite(RPWM, abs(pwm)); // Drive forward
+            //analogWrite(RPWM, abs(pwm)); // Drive forward
+            pwmWrite(RPWM, abs(pwm)); // Write to motor with new frequecy
           }
         }
         else{
           if (angle > (setpoint + deadband))
           { 
-            analogWrite(RPWM, abs(pwm)); // Drive backward
+            //analogWrite(RPWM, abs(pwm)); // Drive backward
+            pwmWrite(RPWM, abs(pwm)); // Write to motor with new frequecy
           }
           else if (angle < (setpoint - deadband))
           { 
-            analogWrite(LPWM, abs(pwm)); // Drive forward
+            //analogWrite(LPWM, abs(pwm)); // Drive forward
+            pwmWrite(LPWM, abs(pwm)); // Write to motor with new frequecy
           }
         }
       }
@@ -584,8 +593,16 @@
 
 
         // Change PWM frequency (Affects servo timer)
-        TCCR1B = TCCR1B & B11111000 | B00000010; // set timer 1 divisor to 8 for PWM frequency of 3921.16 Hz
-      
+        
+        // TCCR1B = TCCR1B & B11111000 | B00000010; // set timer 1 divisor to 8 for PWM frequency of 3921.16 Hz
+        
+        InitTimersSafe(); // initialize all timers except for 0, to save time keeping functions
+                
+        bool success_pwm_1 = SetPinFrequencySafe(RPWM, frequency); // sets the frequency for the motor pwm pins
+        bool success_pwm_2 = SetPinFrequencySafe(LPWM, frequency);
+
+        while(!success_pwm_1 || !success_pwm_2);
+        
       
         // Motorcontroller
         pinMode(RPWM, OUTPUT); // PWM output right channel
@@ -645,7 +662,7 @@
           delay(2);
         }
         */
-        
+
         lcd.clear();
         
         while(int(setpoint - get_angle()) != 0)
