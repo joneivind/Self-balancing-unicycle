@@ -1,85 +1,85 @@
-    /*
-  
-    ///////////////////////////////////////
-    ******* Self balancing unicycle *******
-    ///////////////////////////////////////
-  
-    Final year project in electrical engineering @ Høyskolen i Oslo Akershus, Norway.
-    By Jon-Eivind Stranden & Nicholai Kaas Iversen © 2016.
-    https://github.com/joneivind
+/*
 
-    
-    ///////////////////////
-    ***** Connections *****
-    ///////////////////////
-    
-    * SENSOR   UNO/NANO   MEGA2560 (Same if not specified)
-    
-    ///////////////////////////
-    // MPU6050 gyro/acc (I2C)//
-    ///////////////////////////
-    * VCC      +5v        +5v
-    * GND      GND        GND
-    * SCL      A5         C21
-    * SDA      A4         C20
-    * Int      D2         D2      (Optional)
-    
-    //////////////////////////
-    // Motor Driver BTS7960 //
-    //////////////////////////
-    * VCC     +5v
-    * GND     GND
-    * RPWM    D9                  Forward pwm input
-    * LPWM    D10                 Reverse pwm input
-    * R_EN    D7                  Forward drive enable input, can be bridged with L_EN
-    * L_EN    D8                  Reverse drive enable input, can be bridged with R_EN
-    * R_IS    -                   Current alarm, not used
-    * L_IS    -                   Current alarm, not used
-    * B+      Battery+
-    * B-      Battery-
-    * M+      Motor+
-    * M-      Motor-
+  ///////////////////////////////////////
+  ******* Self balancing unicycle *******
+  ///////////////////////////////////////
 
-    ////////////////////////////////////////
-    // 16x2 LCD display with I2C backpack //
-    ////////////////////////////////////////
-    * VCC     +5v         
-    * GND     GND         
-    * SCL     A5          C21
-    * SDA     A4          C20
-    
-    //////////////
-    // Ledstrip //
-    //////////////
-    * VCC     +5v 
-    * GND     GND
-    * SIGNAL  D6
-
-    ////////////
-    // Buzzer //
-    ////////////
-    * SIGNAL(+) D11
-    * GND     GND
-
-    //////////////////
-    // Reset button //
-    //////////////////
-    * SIGNAL  D4          D4
-    * SIGNAL_HIGH D12
-    * LED     D5          D5
-    * GND     GND         GND
-
-    ///////////////////////////////////////////////////////////////
-    // Voltage divider 0-24v -> 0-5v ( R1: 470k, R2: 100k + 10k) //
-    ///////////////////////////////////////////////////////////////
-    * Vout    A3                  Vout + from battery
+  Final year project in electrical engineering @ Høyskolen i Oslo Akershus, Norway.
+  By Jon-Eivind Stranden & Nicholai Kaas Iversen © 2016.
+  https://github.com/joneivind
 
   
-    *** Credits *** 
-    MPU6050 code: http://www.pitt.edu/~mpd41/Angle.ino
-    Softwarefilter: http://www.elcojacobs.com/eleminating-noise-from-sensor-readings-on-arduino-with-digital-filtering/
+  ///////////////////////
+  ***** Connections *****
+  ///////////////////////
+  
+  * SENSOR   UNO/NANO   MEGA2560 (Same if not specified)
+  
+  ///////////////////////////
+  // MPU6050 gyro/acc (I2C)//
+  ///////////////////////////
+  * VCC      +5v        +5v
+  * GND      GND        GND
+  * SCL      A5         C21
+  * SDA      A4         C20
+  * Int      D2         D2      (Optional)
+  
+  //////////////////////////
+  // Motor Driver BTS7960 //
+  //////////////////////////
+  * VCC     +5v
+  * GND     GND
+  * RPWM    D9                  Forward pwm input
+  * LPWM    D10                 Reverse pwm input
+  * R_EN    D7                  Forward drive enable input, can be bridged with L_EN
+  * L_EN    D8                  Reverse drive enable input, can be bridged with R_EN
+  * R_IS    -                   Current alarm, not used
+  * L_IS    -                   Current alarm, not used
+  * B+      Battery+
+  * B-      Battery-
+  * M+      Motor+
+  * M-      Motor-
 
-    */
+  ////////////////////////////////////////
+  // 16x2 LCD display with I2C backpack //
+  ////////////////////////////////////////
+  * VCC     +5v         
+  * GND     GND         
+  * SCL     A5          C21
+  * SDA     A4          C20
+  
+  //////////////
+  // Ledstrip //
+  //////////////
+  * VCC     +5v 
+  * GND     GND
+  * SIGNAL  D6
+
+  ////////////
+  // Buzzer //
+  ////////////
+  * SIGNAL(+) D11
+  * GND     GND
+
+  //////////////////
+  // Reset button //
+  //////////////////
+  * SIGNAL  D4          D4
+  * SIGNAL_HIGH D12
+  * LED     D5          D5
+  * GND     GND         GND
+
+  ///////////////////////////////////////////////////////////////
+  // Voltage divider 0-24v -> 0-5v ( R1: 470k, R2: 100k + 10k) //
+  ///////////////////////////////////////////////////////////////
+  * Vout    A3                  Vout + from battery
+
+
+  *** Credits *** 
+  MPU6050 code: http://www.pitt.edu/~mpd41/Angle.ino
+  Softwarefilter: http://www.elcojacobs.com/eleminating-noise-from-sensor-readings-on-arduino-with-digital-filtering/
+
+*/
 
 
 ////////////////////////////////////////////
