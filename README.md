@@ -1,5 +1,5 @@
 # Self balancing unicycle
-![alt text](http://c1.staticflickr.com/9/8358/29081386153_c69afc3e12_o.png)
+![alt text](http://c1.staticflickr.com/9/8346/29705939865_b71c44e69d_o.png)
 
 **Final year project in electrical engineering @ Høyskolen i Oslo Akershus, Norway.**
 
@@ -16,5 +16,7 @@
 * Support for WS2812B led strip
 * Motor requirement at least 500W
 * Batteries used are 5200mAh 3s lipo x 2 = 25.2V max
+
+![alt text](https://c1.staticflickr.com/9/8179/29624698801_8ce16dd1e7_o.png)
 
 **By Jon-Eivind Stranden & Nicholai Kaas Iversen © 2016.**
