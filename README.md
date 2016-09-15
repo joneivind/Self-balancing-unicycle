@@ -15,6 +15,4 @@
 * Motor requirement at least 500W
 * Batteries used are 5200mAh 3s lipo x 2 = 25.2V max
 
-![alt text](https://c1.staticflickr.com/9/8179/29624698801_8ce16dd1e7_o.png)
-
 **By Jon-Eivind Stranden & Nicholai Kaas Iversen © 2016.**
