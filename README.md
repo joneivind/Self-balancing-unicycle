@@ -1,8 +1,6 @@
 # Self balancing unicycle
-
-![alt text](https://c1.staticflickr.com/9/8179/29624698801_8ce16dd1e7_o.png)
-
 **Final year project in electrical engineering @ Høyskolen i Oslo Akershus, Norway.**
+![alt text](http://c1.staticflickr.com/9/8358/29081386153_c69afc3e12_o.png)
 
 ## Features
 
