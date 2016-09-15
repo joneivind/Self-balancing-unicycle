@@ -103,7 +103,7 @@
 
       float kp = 55.0;
       float ki = 0.0; 
-      float kd = 7.0;
+      float kd = 7.5;
 
       //#define TUNING // Uncomment if tuning panel is attached
 
@@ -128,8 +128,8 @@
 
       bool motor_direction_forward = false;  // Set motor direction forward/reverse
       
-      float pushback_angle = 2.0;  // Degrees where pushback should activate *Must be less than max_roll*
-      float pushback_range = 2.0;  // Degrees from setpoint where pushback deactivates if activated
+      float pushback_angle = 2.2;  // Degrees where pushback should activate *Must be less than max_roll*
+      float pushback_range = 2.2;  // Degrees from setpoint where pushback deactivates if activated
       
       int throttle_expo = 0; // Standard throttle_expo value *DONT CHANGE*
       bool fall_detection_trigger = false; // Default value fall detection *DONT CHANGE*
@@ -140,8 +140,8 @@
 ////////////////////////////////////////////
 
 
-      float Umax = 255.0;  // Max output
-      float Umin = -255.0; // Min output
+      float Umax = 180.0;  // Max output
+      float Umin = -180.0; // Min output
       
       float p_term = 0.0; // Store propotional value
       float i_term = 0.0; // Store integral value
@@ -151,7 +151,9 @@
       float last_error = 0.0; // Store last error sum
       
       int output = 0; // PID output + throttle_expo
+      int total_output = 0;
       int pid_output = 0;
+      float angle = 0;
 
 
 ////////////////////////////////////////////
@@ -183,19 +185,16 @@
       int R_EN = 7; // Forward drive enable input
       int L_EN = 8; // Reverse drive enable input
       
-      int32_t frequency = 2000; // Motor frequency (in Hz)
+      int32_t frequency = 4000; // Motor frequency (in Hz)
 
 
 ////////////////////////////////////////////
-// Reset button ////////////////////////////
+// Button menu /////////////////////////////
 ////////////////////////////////////////////
 
 
-      int reset_button_pin = 4;
-      int reset_button_led_pin = 5;
-      int reset_button_constant_high = 12;
-      bool reset_button_led_state = true;
-      int led_counter = 0;
+      int button_pin = 4;
+      int menu_item = 0;
 
 
 ////////////////////////////////////////////
@@ -274,11 +273,11 @@
         // Throttle throttle_expo function if near max roll
         if (angle > (setpoint + pushback_angle) && throttle_expo >= -255) 
         {
-          throttle_expo = -pow(10, abs(error) - pushback_angle);
+          throttle_expo = -pow(11, abs(error) - pushback_angle);
         }
         else if (angle < (setpoint - pushback_angle) && throttle_expo <= 255) 
         {
-          throttle_expo = pow(10, abs(error) - pushback_angle);
+          throttle_expo = pow(11, abs(error) - pushback_angle);
         }
         else
         {
@@ -287,17 +286,16 @@
 
         /*
         // Pushback function 2.0
-        if (angle > (setpoint + pushback_angle)) 
+        if (angle > (setpoint + pushback_angle))
         {
           float test = 81.0 + pushback_angle - angle;
-          setpoint = 81.0 + test;
+          setpoint = 81.0 - test;
         }
         else
         {
           setpoint = 81.0;
         }
         */
-
       
        // Calculate PID
         p_term = error;  // Propotional
@@ -313,24 +311,36 @@
         d_term = kd * ((error - last_error) / delta_t); // Derivative
 
       
-        output = kp * (p_term + i_term + d_term) + throttle_expo; // Calculate output
+        output = kp * (p_term + i_term + d_term); // Calculate output
 
       
         // Limit output
-        if (output > 255) 
+        if (output > Umax) 
         {
-          output = 255;
+          output = Umax;
         }
-        else if (output < -255) 
+        else if (output < Umin) 
         {
-          output = -255;
+          output = Umin;
+        }
+
+        total_output = output + throttle_expo;
+        
+        // Limit output
+        if (total_output > 255) 
+        {
+          total_output = 255;
+        }
+        else if (total_output < -255) 
+        {
+          total_output = -255;
         }
 
         
         last_error = error; // Remember error for next time
 
       
-        return output;
+        return total_output;
       }
       
       
@@ -519,6 +529,63 @@
         return vIn;
       }
 
+////////////////////////////////////////////
+// Startup menu ////////////////////////////
+////////////////////////////////////////////
+
+      void startup_menu()
+      { 
+        lcd.clear();
+
+        lcd.setCursor(0, 0);
+        lcd.print("Mode: Strong 2kHz");
+        
+        while(int(setpoint - get_angle()) != 0)
+        {
+          get_angle();
+          
+          if(digitalRead(button_pin) == HIGH){
+            if(menu_item >= 2)
+              menu_item = 0;
+            else
+              menu_item++;
+            
+            lcd.setCursor(0, 0);
+            
+            switch (menu_item){
+              case 0:
+              {
+                lcd.print("Mode: Strong 2k ");
+                frequency = 2000;
+              }
+              break;
+              case 1:
+              {
+                lcd.print("Mode: Medium 8k ");
+                frequency = 8000;
+              }
+              break;
+              case 2:
+              {
+                lcd.print("Mode: Silent 16k ");
+                frequency = 16000;
+              }
+              break;
+            }
+            bool success_pwm_1 = SetPinFrequencySafe(RPWM, frequency); // sets the frequency for the motor pwm pins
+            bool success_pwm_2 = SetPinFrequencySafe(LPWM, frequency);
+            while(!success_pwm_1 || !success_pwm_2);
+            delay(500);
+          }
+          lcd.setCursor(0, 1);
+          lcd.print("Tilt to zero: ");
+          lcd.print(int(get_angle() - setpoint));
+          lcd.print("   ");
+        }
+
+        lcd.clear();
+      }
+
 
 ////////////////////////////////////////////
 // Main setup //////////////////////////////
@@ -617,10 +684,6 @@
         
         
         // Reset button
-        pinMode(reset_button_pin, INPUT);
-        pinMode(reset_button_led_pin, OUTPUT);
-        pinMode(reset_button_constant_high, OUTPUT);
-        digitalWrite(reset_button_constant_high, HIGH);
       
         
         // Initialize timer
@@ -639,19 +702,20 @@
         {
           pixels.setPixelColor(i1, pixels.Color(0,200,0)); // Set color
           pixels.setPixelColor(7-i1, pixels.Color(0,200,0)); // Set color
-          pixels.setPixelColor(i1+8, pixels.Color(200,200,200)); // Set color
           pixels.show();  // Send updated pixel color value to hardware
+          delay(50);
         }
-        for(int i1=12;i1<numPixel;i1++)
+        for(int i1=8;i1<numPixel;i1++)
         {
           pixels.setPixelColor(i1, pixels.Color(200,200,200)); // Set color
           pixels.show();  // Send updated pixel color value to hardware
+          delay(50);
         }
       
         //tone(buzzerPin, 1000, 500);
       
         // Read initial voltage value
-        battery = read_voltage();
+        //battery = read_voltage();
       
       
         /*
@@ -662,23 +726,8 @@
           delay(2);
         }
         */
-
-        lcd.clear();
         
-        while(int(setpoint - get_angle()) != 0)
-        {
-          get_angle();
-          lcd.setCursor(2, 0);
-          lcd.print("Tilt to zero       ");
-          lcd.setCursor(3, 1);
-          lcd.print("Offset: ");
-          lcd.print(int(get_angle() - setpoint));
-          lcd.print("   ");
-        }
-
-        lcd.clear();
-      
-        //tone(buzzerPin, 1300, 1000);  
+        startup_menu();
       }
 
 
@@ -690,8 +739,8 @@
       
       void loop()
       { 
-        if ((millis() - main_loop_timer) > (2.0f/1000.0f * 1000)) // Run loop @ 100hz (1/100hz = 10ms) - 1/400hz = 2.5ms - 1/500hz = 2ms
-        {
+        //if ((millis() - main_loop_timer) > (2.0f/1000.0f * 1000)) // Run loop @ 100hz (1/100hz = 10ms) - 1/400hz = 2.5ms - 1/500hz = 2ms
+        //{
           main_loop_timer = millis(); // Reset main loop timer
 
       
@@ -707,128 +756,119 @@
           #endif
 
       
-          float angle = get_angle();
-
-
+          angle = get_angle();
           pid_output = get_pid(abs(angle)); // Calculate PID output
 
-      
-          if (angle > (setpoint + max_roll) || angle < (setpoint - min_roll)) // If roll angle is greater than max roll, stop motor
-          {
-            digitalWrite(R_EN,LOW);
-            digitalWrite(L_EN,LOW);
-            motor(0, angle);
+        //}
 
-            
-            fall_detection_trigger = true; // Fall detected
+        if (angle > (setpoint + max_roll) || angle < (setpoint - min_roll)) // If roll angle is greater than max roll, stop motor
+        {
+          digitalWrite(R_EN,LOW);
+          digitalWrite(L_EN,LOW);
+          motor(0, angle);
 
-      
-            if(fall_detection_trigger = true)
-            {
-              lcd.setCursor(0, 0);
-              lcd.print(" FALL DETECTED! ");
-              lcd.setCursor(0, 1);
-              lcd.print(" Please reset...");
-                
-              while(1)
-              {
-                // Light up neopixel ledstrip
-                for(int i1=0;i1<4;i1++)
-                {
-                  pixels.setPixelColor(i1, pixels.Color(200,0,0)); // Set color
-                  pixels.setPixelColor(7-i1, pixels.Color(200,0,0)); // Set color
-                }
-                pixels.show();  // Send updated pixel color value to hardware
-
-                delay(500);
-                
-                for(int i1=0;i1<4;i1++)
-                {
-                  pixels.setPixelColor(i1, pixels.Color(0,0,0)); // Set color
-                  pixels.setPixelColor(7-i1, pixels.Color(0,0,0)); // Set color
-                }
-                pixels.show();  // Send updated pixel color value to hardware
-                
-                delay(500);
-              }
-            }
-          }
           
-          else
-          { 
-            digitalWrite(R_EN,HIGH);
-            digitalWrite(L_EN,HIGH);
-            motor(pid_output, angle); // Enable and write PID output value to motor
-      
-            
-            int motorPower = int(abs(100.0f/Umax) * pid_output); // Shows motor output in % of total
-            int offset = int(setpoint - angle); // Shows error from setpoint in degrees
-            float offsetFine = float(angle - setpoint); // Shows error from setpoint in degrees
-      
-      
-            //Turn on stats
-            if(offset == 0 && motorPower == 0)
-            {
-              enableStats = true;
-            }
-            
-            if(abs(motorPower) > maxOutput && enableStats)
-            {
-              maxOutput = abs(motorPower);
-            }
-            else if (!enableStats)
-            {
-              maxOutput = 0;
-            }
-      
-            if(abs(offset) > maxAngle && enableStats)
-            {
-              maxAngle = abs(offset);
-            }
-            else if (!enableStats)
-            {
-              maxAngle = 0;
-            }
-      
-            
-            battery_loop_counter++;
-            
-            if(battery_loop_counter > 100)  // Update batterystatus every second
-            {
-              battery = read_voltage();
-              battery_loop_counter = 0;
-            }
-      
-            
-            // LCD output
-              
-            // Offset monitor
-            lcd.setCursor(0, 1);
-            lcd.print("E:");
-            lcd.print(offsetFine);
-            lcd.print(" ");
-            
-            // Battery monitor
+          fall_detection_trigger = true; // Fall detected
+
+    
+          if(fall_detection_trigger = true)
+          {
             lcd.setCursor(0, 0);
-            lcd.print("Bat:");
-            lcd.print(battery);
-            lcd.print("v (");
-            lcd.print(map(battery*10, 206, 252, 0, 100));
-            lcd.print("%)  ");
-           
-            /*
-            // P value
-            lcd.setCursor(11, 1);
-            lcd.print("PD:");
-            lcd.print(pid_output*(-1));
-            lcd.print("  ");
-            */
-            
-            //D value
-            lcd.setCursor(9, 1);
-            lcd.print("SP:");
-            lcd.print(setpoint);
-      
+            lcd.print(" FALL DETECTED! ");
+            lcd.setCursor(0, 1);
+            lcd.print("Please restart...");
+              
+            while(1)
+            {
+              // Light up neopixel ledstrip
+              for(int i1=0;i1<4;i1++)
+              {
+                pixels.setPixelColor(i1, pixels.Color(200,0,0)); // Set color
+                pixels.setPixelColor(7-i1, pixels.Color(200,0,0)); // Set color
+              }
+              pixels.show();  // Send updated pixel color value to hardware
+
+              delay(500);
+              
+              for(int i1=0;i1<4;i1++)
+              {
+                pixels.setPixelColor(i1, pixels.Color(0,0,0)); // Set color
+                pixels.setPixelColor(7-i1, pixels.Color(0,0,0)); // Set color
+              }
+              pixels.show();  // Send updated pixel color value to hardware
+              
+              delay(500);
+            }
           }
         }
+        
+        else
+        { 
+          digitalWrite(R_EN,HIGH);
+          digitalWrite(L_EN,HIGH);
+          motor(pid_output, angle); // Enable and write PID output value to motor
+    
+          
+          int motorPower = int(abs(100.0f/Umax) * pid_output); // Shows motor output in % of total
+          int offset = int(setpoint - angle); // Shows error from setpoint in degrees
+          float offsetFine = float(angle - setpoint); // Shows error from setpoint in degrees
+    
+    
+          //Turn on stats
+          if(offset == 0 && motorPower == 0)
+          {
+            enableStats = true;
+          }
+          
+          if(abs(motorPower) > maxOutput && enableStats)
+          {
+            maxOutput = abs(motorPower);
+          }
+          else if (!enableStats)
+          {
+            maxOutput = 0;
+          }
+    
+          if(abs(offset) > maxAngle && enableStats)
+          {
+            maxAngle = abs(offset);
+          }
+          else if (!enableStats)
+          {
+            maxAngle = 0;
+          }
+    
+          
+          /*
+          battery_loop_counter++;
+          
+          if(battery_loop_counter > 100)  // Update batterystatus every second
+          {
+            battery = read_voltage();
+            battery_loop_counter = 0;
+          }
+          */
+    
+          
+          // LCD output
+            
+          lcd.setCursor(0, 0);
+          lcd.print("PID:");
+          lcd.print(pid_output * (-1));
+          lcd.print(" ");
+          lcd.setCursor(9, 0);
+          lcd.print("Max:");
+          lcd.print(maxOutput);
+          lcd.print("  ");
+          
+          lcd.setCursor(0, 1);
+          lcd.print("Ang:");
+          lcd.print(offset);
+          lcd.print(" ");
+          lcd.setCursor(9, 1);
+          lcd.print("Max:");
+          lcd.print(maxAngle);
+          lcd.print("  ");
+      
+          }
       }
