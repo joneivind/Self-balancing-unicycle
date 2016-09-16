@@ -738,7 +738,7 @@
         
         startup_menu();
       
-        tone(buzzerPin, 2000, 1000);
+        tone(buzzerPin, 1800, 300);
       }
 
 
@@ -850,7 +850,7 @@
             tone(buzzerPin, 2000, 50);
 
           if(abs(pid_output) >= Umax) // Alert if near limit
-            tone(buzzerPin, 2000, 500);
+            tone(buzzerPin, 1600, 500);
     
           
           // LCD output
