@@ -118,7 +118,7 @@
       
       float deadband = 0.0; // +-degrees of deadband around setpoint where motor output is zero
       int max_roll = 20; // Degrees from setpoint before motor will stop
-      int min_roll = 8; // Degrees from setpoint before motor will stop
+      int min_roll = 10; // Degrees from setpoint before motor will stop
 
 
 ////////////////////////////////////////////
@@ -128,8 +128,8 @@
 
       bool motor_direction_forward = false;  // Set motor direction forward/reverse
       
-      float pushback_angle = 2.2;  // Degrees where pushback should activate *Must be less than max_roll*
-      float pushback_range = 2.2;  // Degrees from setpoint where pushback deactivates if activated
+      float pushback_angle = 2.1;  // Degrees where pushback should activate *Must be less than max_roll*
+      float pushback_range = 2.1;  // Degrees from setpoint where pushback deactivates if activated
       
       int throttle_expo = 0; // Standard throttle_expo value *DONT CHANGE*
       bool fall_detection_trigger = false; // Default value fall detection *DONT CHANGE*
@@ -140,8 +140,8 @@
 ////////////////////////////////////////////
 
 
-      float Umax = 180.0;  // Max output
-      float Umin = -180.0; // Min output
+      float Umax = 190.0;  // Max output
+      float Umin = -190.0; // Min output
       
       float p_term = 0.0; // Store propotional value
       float i_term = 0.0; // Store integral value
@@ -273,11 +273,11 @@
         // Throttle throttle_expo function if near max roll
         if (angle > (setpoint + pushback_angle) && throttle_expo >= -255) 
         {
-          throttle_expo = -pow(11, abs(error) - pushback_angle);
+          throttle_expo = -pow(11.2, abs(error) - pushback_angle);
         }
         else if (angle < (setpoint - pushback_angle) && throttle_expo <= 255) 
         {
-          throttle_expo = pow(11, abs(error) - pushback_angle);
+          throttle_expo = pow(11.2, abs(error) - pushback_angle);
         }
         else
         {
@@ -550,6 +550,8 @@
             else
               menu_item++;
             
+            tone(buzzerPin, 2000, 100);
+            
             lcd.setCursor(0, 0);
             
             switch (menu_item){
@@ -575,7 +577,7 @@
             bool success_pwm_1 = SetPinFrequencySafe(RPWM, frequency); // sets the frequency for the motor pwm pins
             bool success_pwm_2 = SetPinFrequencySafe(LPWM, frequency);
             while(!success_pwm_1 || !success_pwm_2);
-            delay(500);
+            delay(300);
           }
           lcd.setCursor(0, 1);
           lcd.print("Tilt to zero: ");
@@ -594,9 +596,7 @@
       
       void setup()
       { 
-        Serial.begin(115200);
-        Wire.begin();
-            
+        
         // Initialize lcd display
         lcd.begin();
         lcd.clear(); // Clear display        
@@ -605,8 +605,14 @@
         lcd.setCursor(0, 1);
         lcd.print("   Booting...  ");
         lcd.backlight(); // Turn on backlight
-      
-      
+        
+        tone(buzzerPin, 1600, 80);
+        delay(150);
+        tone(buzzerPin, 2000, 80);
+        
+        Serial.begin(115200);
+        Wire.begin();
+              
         pixels.begin(); // initialize the NeoPixel library
 
     
@@ -700,19 +706,22 @@
         // Light up neopixel ledstrip
         for(int i1=0;i1<4;i1++)
         {
-          pixels.setPixelColor(i1, pixels.Color(0,200,0)); // Set color
-          pixels.setPixelColor(7-i1, pixels.Color(0,200,0)); // Set color
-          pixels.show();  // Send updated pixel color value to hardware
-          delay(50);
+          for(int i2=0;i2<200;i2++)
+          {
+            pixels.setPixelColor(i1, pixels.Color(0,i2,0)); // Set color
+            pixels.setPixelColor(7-i1, pixels.Color(0,i2,0)); // Set color
+            pixels.show();  // Send updated pixel color value to hardware
+          }
         }
         for(int i1=8;i1<numPixel;i1++)
         {
-          pixels.setPixelColor(i1, pixels.Color(200,200,200)); // Set color
-          pixels.show();  // Send updated pixel color value to hardware
-          delay(50);
+          for(int i2=0;i2<200;i2++)
+          {
+            pixels.setPixelColor(i1, pixels.Color(i2,i2,i2)); // Set color
+            pixels.setPixelColor(7-i1, pixels.Color(i2,i2,i2)); // Set color
+            pixels.show();  // Send updated pixel color value to hardware
+          }
         }
-      
-        //tone(buzzerPin, 1000, 500);
       
         // Read initial voltage value
         //battery = read_voltage();
@@ -728,6 +737,8 @@
         */
         
         startup_menu();
+      
+        tone(buzzerPin, 2000, 1000);
       }
 
 
@@ -767,10 +778,8 @@
           digitalWrite(L_EN,LOW);
           motor(0, angle);
 
-          
           fall_detection_trigger = true; // Fall detected
 
-    
           if(fall_detection_trigger = true)
           {
             lcd.setCursor(0, 0);
@@ -787,7 +796,7 @@
                 pixels.setPixelColor(7-i1, pixels.Color(200,0,0)); // Set color
               }
               pixels.show();  // Send updated pixel color value to hardware
-
+              tone(buzzerPin, 2000, 500);
               delay(500);
               
               for(int i1=0;i1<4;i1++)
@@ -796,7 +805,6 @@
                 pixels.setPixelColor(7-i1, pixels.Color(0,0,0)); // Set color
               }
               pixels.show();  // Send updated pixel color value to hardware
-              
               delay(500);
             }
           }
@@ -837,17 +845,12 @@
           {
             maxAngle = 0;
           }
-    
-          
-          /*
-          battery_loop_counter++;
-          
-          if(battery_loop_counter > 100)  // Update batterystatus every second
-          {
-            battery = read_voltage();
-            battery_loop_counter = 0;
-          }
-          */
+
+          if(digitalRead(button_pin) == HIGH) // Horn while driving
+            tone(buzzerPin, 2000, 50);
+
+          if(abs(pid_output) >= Umax) // Alert if near limit
+            tone(buzzerPin, 2000, 500);
     
           
           // LCD output
