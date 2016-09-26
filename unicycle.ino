@@ -128,8 +128,8 @@
 
       bool motor_direction_forward = false;  // Set motor direction forward/reverse
       
-      float pushback_angle = 2.1;  // Degrees where pushback should activate *Must be less than max_roll*
-      float pushback_range = 2.1;  // Degrees from setpoint where pushback deactivates if activated
+      float pushback_angle = 2.05;  // Degrees where pushback should activate *Must be less than max_roll*
+      float pushback_range = 2.05;  // Degrees from setpoint where pushback deactivates if activated
       
       int throttle_expo = 0; // Standard throttle_expo value *DONT CHANGE*
       bool fall_detection_trigger = false; // Default value fall detection *DONT CHANGE*
@@ -140,8 +140,8 @@
 ////////////////////////////////////////////
 
 
-      float Umax = 190.0;  // Max output
-      float Umin = -190.0; // Min output
+      float Umax = 200.0;  // Max output
+      float Umin = -200.0; // Min output
       
       float p_term = 0.0; // Store propotional value
       float i_term = 0.0; // Store integral value
@@ -229,6 +229,8 @@
       
       int ledPin = 6;
       int numPixel = 15; // How many NeoPixels are attached to the Arduino?
+      bool lightsOn = true;
+      int lightMenu = 0;
       
       Adafruit_NeoPixel pixels = Adafruit_NeoPixel(numPixel, ledPin, NEO_GRB + NEO_KHZ800);
 
@@ -538,14 +540,86 @@
         lcd.clear();
 
         lcd.setCursor(0, 0);
-        lcd.print("Mode: Strong 2kHz");
+        lcd.print("Mode: Strong 2k ");
         
         while(int(setpoint - get_angle()) != 0)
         {
           get_angle();
           
           if(digitalRead(button_pin) == HIGH){
-            if(menu_item >= 2)
+
+            int button_timer1 = millis();
+            while(digitalRead(button_pin) == HIGH){
+              int button_timer2 = millis();
+              if((button_timer2 - button_timer1) > 1000){
+            
+                tone(buzzerPin, 2000, 300);
+
+                switch(lightMenu) {
+                  case 0:
+                  {
+                    for(int i1=0;i1<8;i1++)
+                    {
+                      pixels.setPixelColor(i1, pixels.Color(0,0,200)); // Set color
+                    }
+                    for(int i1=8;i1<numPixel;i1++)
+                    {
+                      pixels.setPixelColor(i1, pixels.Color(200,200,200)); // Set color
+                    }       
+                  }
+                  break;
+                  case 1:
+                  {
+                    for(int i1=0;i1<8;i1++)
+                    {
+                      pixels.setPixelColor(i1, pixels.Color(200,0,0)); // Set color
+                    }
+                    for(int i1=8;i1<numPixel;i1++)
+                    {
+                      pixels.setPixelColor(i1, pixels.Color(200,200,200)); // Set color
+                    }          
+                  }
+                  break;
+                  case 2:
+                  {
+                    for(int i1=0;i1<numPixel;i1++)
+                    {
+                      pixels.setPixelColor(i1, pixels.Color(0,0,0)); // Set color
+                    }      
+                  }
+                  break;
+                  case 3:
+                  {
+                    for(int i1=0;i1<numPixel;i1++)
+                    {
+                      pixels.setPixelColor(i1, pixels.Color(0,200,0)); // Set color
+                    }
+                    for(int i1=8;i1<numPixel;i1++)
+                    {
+                      pixels.setPixelColor(i1, pixels.Color(200,200,200)); // Set color
+                    }        
+                  }
+                  break;
+                }
+                pixels.show();  // Send updated pixel color value to hardware 
+                
+                if(lightMenu >= 3)
+                  lightMenu = 0;
+                else
+                  lightMenu++;
+             
+                delay(300);
+                break;
+                }
+            }
+            
+            int button_timer2 = millis();
+
+            if((button_timer2 - button_timer1) > 1000);
+
+            else{
+            
+            if(menu_item >= 3)
               menu_item = 0;
             else
               menu_item++;
@@ -558,16 +632,22 @@
               case 0:
               {
                 lcd.print("Mode: Strong 2k ");
-                frequency = 2000;
+                frequency = 2000;            
               }
               break;
               case 1:
               {
-                lcd.print("Mode: Medium 8k ");
-                frequency = 8000;
+                lcd.print("Mode: Medium 4k ");
+                frequency = 4000;
               }
               break;
               case 2:
+              {
+                lcd.print("Mode: Light 8k ");
+                frequency = 8000;
+              }
+              break;
+              case 3:
               {
                 lcd.print("Mode: Silent 16k ");
                 frequency = 16000;
@@ -577,7 +657,11 @@
             bool success_pwm_1 = SetPinFrequencySafe(RPWM, frequency); // sets the frequency for the motor pwm pins
             bool success_pwm_2 = SetPinFrequencySafe(LPWM, frequency);
             while(!success_pwm_1 || !success_pwm_2);
+
             delay(300);
+          }
+            
+          
           }
           lcd.setCursor(0, 1);
           lcd.print("Tilt to zero: ");
@@ -606,8 +690,8 @@
         lcd.print("   Booting...  ");
         lcd.backlight(); // Turn on backlight
         
-        tone(buzzerPin, 1600, 80);
-        delay(150);
+        //tone(buzzerPin, 1600, 80);
+        //delay(150);
         tone(buzzerPin, 2000, 80);
         
         Serial.begin(115200);
@@ -725,20 +809,10 @@
       
         // Read initial voltage value
         //battery = read_voltage();
-      
-      
-        /*
-        // Turn on light in reset button
-        for(int i=0;i<255;i++)
-        {
-          analogWrite(reset_button_led_pin, i);
-          delay(2);
-        }
-        */
         
         startup_menu();
       
-        tone(buzzerPin, 1800, 300);
+        tone(buzzerPin, 2400, 300);
       }
 
 
