@@ -336,24 +336,27 @@
       
       
       void motor(int pwm, float angle){
-        
-        if (motor_direction_forward == true)
-        {
+
+        // Write to motor with new frequecy (Forward)
+        if (motor_direction_forward == true){
           if (angle > (setpoint + deadband)){ 
-            pwmWrite(LPWM, abs(pwm)); // Write to motor with new frequecy
+            pwmWrite(LPWM, abs(pwm));
           }
           else if (angle < (setpoint - deadband)){ 
-            pwmWrite(RPWM, abs(pwm)); // Write to motor with new frequecy
+            pwmWrite(RPWM, abs(pwm));
           }
         }
+        
+        // Write to motor with new frequecy (Backward)
         else{
           if (angle > (setpoint + deadband)){ 
-            pwmWrite(RPWM, abs(pwm)); // Write to motor with new frequecy
+            pwmWrite(RPWM, abs(pwm));
           }
           else if (angle < (setpoint - deadband)){ 
-            pwmWrite(LPWM, abs(pwm)); // Write to motor with new frequecy
+            pwmWrite(LPWM, abs(pwm));
           }
         }
+        
       }
 
 
