@@ -111,6 +111,7 @@
 ////////////////////////////////////////////
 // PID output variable /////////////////////
 ////////////////////////////////////////////
+
       
       float setpoint = 81.0; // Initial degree setpoint
       
@@ -241,6 +242,7 @@
 
 
       // #define BATTERY_METER // Uncomment if using battery voltage divider
+      
       int battery_loop_counter = 0;
       int batteryPin = A3; // Sensor value 0-1023
       float divider_output = 4.04; // Measured output voltage on full battery
