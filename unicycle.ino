@@ -130,7 +130,7 @@
       bool motor_direction_forward = false;  // Set motor direction forward/reverse
       
       float pushback_angle = 2.1;  // Degrees where pushback should activate *Must be less than max_roll*
-      float pushback_range = 2.1;  // Degrees from setpoint where pushback deactivates if activated
+      float throttle_expo_factor = 11.0; // How strong the throttle expo is after the pushback angle
       
       int throttle_expo = 0; // Standard throttle_expo value *DONT CHANGE*
       bool fall_detection_trigger = false; // Default value fall detection *DONT CHANGE*
@@ -278,10 +278,10 @@
         
         // Throttle throttle_expo function if near max roll
         if (angle > (setpoint + pushback_angle) && throttle_expo >= -255){
-          throttle_expo = -pow(11.0, abs(error) - pushback_angle);
+          throttle_expo = -pow(throttle_expo_factor, abs(error) - pushback_angle);
         }
         else if (angle < (setpoint - pushback_angle) && throttle_expo <= 255){
-          throttle_expo = pow(11.0, abs(error) - pushback_angle);
+          throttle_expo = pow(throttle_expo_factor, abs(error) - pushback_angle);
         }
         else throttle_expo = 0;
         
