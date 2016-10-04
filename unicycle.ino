@@ -118,8 +118,8 @@
       bool ki_enable = false; //Enables integral regulator if true, disabled if false
       
       float deadband = 0.0; // +-degrees of deadband around setpoint where motor output is zero
-      int max_roll = 20; // Max degrees from setpoint before motor will stop
-      int min_roll = 15; // Min degrees from setpoint before motor will stop
+      int max_roll = 12; // Max degrees from setpoint before motor will stop
+      int min_roll = 8; // Min degrees from setpoint before motor will stop
 
 
 ////////////////////////////////////////////
@@ -141,8 +141,8 @@
 ////////////////////////////////////////////
 
 
-      float Umax = 220.0;  // Max output
-      float Umin = -220.0; // Min output
+      float Umax = 255.0;  // Max output
+      float Umin = -255.0; // Min output
       
       float p_term = 0.0; // Store propotional value
       float i_term = 0.0; // Store integral value
@@ -151,8 +151,8 @@
       float error = 0.0; // Sum error
       float last_error = 0.0; // Store last error sum
       
-      int output = 0; // PID output + throttle_expo
-      int total_output = 0;
+      int output = 0; // PID output
+      int total_output = 0; // PID output + throttle_expo
       int pid_output = 0;
       float angle = 0;
 
@@ -172,7 +172,6 @@
 ////////////////////////////////////////////
 
 
-      int main_loop_timer = millis(); // Dt timer main loop 
       int lastTime = millis(); //Dt timer PID loop
 
 
@@ -186,7 +185,7 @@
       int R_EN = 7; // Forward drive enable input
       int L_EN = 8; // Reverse drive enable input
       
-      int32_t frequency = 4000; // Motor frequency (in Hz)
+      int32_t frequency = 2000; // Motor frequency (in Hz)
 
 
 ////////////////////////////////////////////
@@ -276,15 +275,17 @@
         error = setpoint - angle; 
 
         
-        // Throttle throttle_expo function if near max roll
-        if (angle > (setpoint + pushback_angle) && throttle_expo >= -255){
-          throttle_expo = -pow(throttle_expo_factor, abs(error) - pushback_angle);
-        }
-        else if (angle < (setpoint - pushback_angle) && throttle_expo <= 255){
-          throttle_expo = pow(throttle_expo_factor, abs(error) - pushback_angle);
-        }
-        else throttle_expo = 0;
-        
+        /*
+          // Throttle throttle_expo function if near max roll
+          if (angle > (setpoint + pushback_angle) && throttle_expo >= -255){
+            throttle_expo = -pow(throttle_expo_factor, abs(error) - pushback_angle);
+          }
+          else if (angle < (setpoint - pushback_angle) && throttle_expo <= 255){
+            throttle_expo = pow(throttle_expo_factor, abs(error) - pushback_angle);
+          }
+          else throttle_expo = 0;
+        */
+
       
         // Calculate PID
         
@@ -313,7 +314,7 @@
           output = Umin;
         }
 
-        total_output = output + throttle_expo;
+        /*total_output = output + throttle_expo;
         
         // Limit output
         if (total_output > 255){
@@ -321,12 +322,12 @@
         }
         else if (total_output < -255){
           total_output = -255;
-        }
+        }*/
 
         // Remember error for next time
         last_error = error; 
       
-        return total_output;
+        return output;
       }
       
       
@@ -515,7 +516,7 @@
 
 
       void startup_menu(){ 
-        
+
         lcd.clear();
         lcd.setCursor(0, 0);
         lcd.print("Mode: Strong 2k ");
@@ -537,8 +538,21 @@
                 
                 tone(buzzerPin, 2000, 300);
                 
+                lcd.setCursor(0, 0);
+                
                 switch(lightMenu){
                   case 0:{
+                    lcd.print("Lights: Green      ");
+                    for(int i1=0;i1<numPixel;i1++){
+                      pixels.setPixelColor(i1, pixels.Color(0,200,0)); // Set color green
+                    }
+                    for(int i1=8;i1<numPixel;i1++){
+                      pixels.setPixelColor(i1, pixels.Color(200,200,200)); // Set color white
+                    }
+                  }
+                  break;
+                  case 1:{
+                    lcd.print("Lights: Blue      ");
                     for(int i1=0;i1<8;i1++){
                       pixels.setPixelColor(i1, pixels.Color(0,0,200)); // Set color blue
                     }
@@ -547,7 +561,8 @@
                     }
                   }
                   break;
-                  case 1:{
+                  case 2:{
+                    lcd.print("Lights: Red      ");
                     for(int i1=0;i1<8;i1++){
                       pixels.setPixelColor(i1, pixels.Color(200,0,0)); // Set color red
                     }
@@ -556,18 +571,10 @@
                     }
                   }
                   break;
-                  case 2:{
+                  case 3:{
+                    lcd.print("Lights: Off      ");
                     for(int i1=0;i1<numPixel;i1++){
                       pixels.setPixelColor(i1, pixels.Color(0,0,0)); // Set color none
-                    }
-                  }
-                  break;
-                  case 3:{
-                    for(int i1=0;i1<numPixel;i1++){
-                      pixels.setPixelColor(i1, pixels.Color(0,200,0)); // Set color green
-                    }
-                    for(int i1=8;i1<numPixel;i1++){
-                      pixels.setPixelColor(i1, pixels.Color(200,200,200)); // Set color white
                     }
                   }
                   break;
@@ -604,22 +611,22 @@
               
               switch (menu_item){
                 case 0:{
-                  lcd.print("Mode: Strong 2k ");
+                  lcd.print("Mode: Strong 2k  ");
                   frequency = 2000;            
                 }
                 break;
                 case 1:{
-                  lcd.print("Mode: Medium 4k ");
-                  frequency = 4000;
+                  lcd.print("Mode: Xstrong 1k  ");
+                  frequency = 1000;
                 }
                 break;
                 case 2:{
-                  lcd.print("Mode: Light 8k ");
-                  frequency = 8000;
+                  lcd.print("Mode: Light 4k  ");
+                  frequency = 4000;
                 }
                 break;
                 case 3:{
-                  lcd.print("Mode: Silent 16k ");
+                  lcd.print("Mode: Silent 16k  ");
                   frequency = 16000;
                 }
                 break;
@@ -663,12 +670,18 @@
 
         
         tone(buzzerPin, 2000, 80);
+        delay(100);
+        tone(buzzerPin, 2000, 80);
+        delay(100);
+        tone(buzzerPin, 2000, 80);
+        delay(100);
+        tone(buzzerPin, 2400, 80);
 
         
         Serial.begin(115200);
         Wire.begin();
 
-              
+
         pixels.begin(); // initialize the NeoPixel library
 
     
@@ -739,34 +752,12 @@
         digitalWrite(LPWM, LOW);
         digitalWrite(R_EN, LOW);
         digitalWrite(L_EN, LOW);
-
-      
-        // Initialize main loop timer
-        main_loop_timer = millis(); 
         
         
         // Add some initial gyro angle values
         for (int i=0; i<100; i++){
           get_angle();
         }
-      
-        
-        // Light up neopixel ledstrip
-        for(int i1=0;i1<4;i1++){
-          for(int i2=0;i2<200;i2++){
-            pixels.setPixelColor(i1, pixels.Color(0,i2,0)); // Set color
-            pixels.setPixelColor(7-i1, pixels.Color(0,i2,0)); // Set color
-            pixels.show();  // Send updated pixel color value to hardware
-          }
-        }
-        for(int i1=8;i1<numPixel;i1++){
-          for(int i2=0;i2<200;i2++){
-            pixels.setPixelColor(i1, pixels.Color(i2,i2,i2)); // Set color
-            pixels.setPixelColor(7-i1, pixels.Color(i2,i2,i2)); // Set color
-            pixels.show();  // Send updated pixel color value to hardware
-          }
-        }
-      
         
         #ifdef BATTERY_METER
           // Read initial voltage value
@@ -790,29 +781,26 @@
       
       
       void loop(){ 
-                
-          main_loop_timer = millis(); // Reset main loop timer
 
+        
+        #ifdef TUNING
+          int potP = map(analogRead(A0), 0, 1023, 0, 100);
+          kp = potP;
       
-          #ifdef TUNING
-            int potP = map(analogRead(A0), 0, 1023, 0, 100);
-            kp = potP;
-        
-            int potD = map(analogRead(A1), 0, 1023, 0, 100);
-            kd = potD;
-        
-            int potSP = map(analogRead(A2), 0, 1023, 75, 95);
-            setpoint = potSP;
-          #endif
+          int potD = map(analogRead(A1), 0, 1023, 0, 100);
+          kd = potD;
+      
+          int potSP = map(analogRead(A2), 0, 1023, 75, 95);
+          setpoint = potSP;
+        #endif
 
 
-          // Get angle and calculate PID output
-          angle = get_angle();
-          pid_output = get_pid(abs(angle)); 
-
-
-
-        // If roll angle is greater than max roll, stop motor
+        // Get angle and calculate PID output
+        angle = get_angle();        
+        pid_output = get_pid(abs(angle)); 
+    
+  
+          // If roll angle is greater than max roll, stop motor
         if (angle > (setpoint + max_roll) || angle < (setpoint - min_roll)){ 
         
           digitalWrite(R_EN,LOW);
@@ -883,32 +871,29 @@
 
 
           // Horn button
-          if(digitalRead(button_pin) == HIGH) 
+          if(digitalRead(button_pin) == HIGH){
             tone(buzzerPin, 2000, 50);
+          }
 
-          // Alert if near limit
-          if(abs(pid_output) >= Umax) 
+          // Alert if angle is 3.0 or more
+          if(abs(offset) >= 3.0){
             tone(buzzerPin, 1600, 500);
-    
+          }
           
           // LCD output            
           lcd.setCursor(0, 0);
-          lcd.print("PID:");
-          lcd.print(pid_output * (-1));
-          lcd.print(" ");
-          lcd.setCursor(9, 0);
-          lcd.print("Max:");
-          lcd.print(maxOutput);
-          lcd.print("  ");
+          lcd.print("Power:");
+          lcd.print(abs(motorPower));
+          lcd.print("% ");
+          lcd.setCursor(10, 0);
+          lcd.print("P:");
+          lcd.print(abs(kp));
           
           lcd.setCursor(0, 1);
-          lcd.print("Ang:");
-          lcd.print(offset);
-          lcd.print(" ");
-          lcd.setCursor(9, 1);
-          lcd.print("Max:");
-          lcd.print(maxAngle);
-          lcd.print("  ");
-      
-          }
+          lcd.print("Angle:");
+          lcd.print(abs(offset));
+          lcd.setCursor(10, 1);
+          lcd.print("D:");
+          lcd.print(abs(kd));
+        }
       }
