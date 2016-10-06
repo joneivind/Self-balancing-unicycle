@@ -93,33 +93,32 @@
       #include <Adafruit_NeoPixel.h>
       #include <avr/power.h>
       #include <PWM.h> // PWM frequecy alternator
-      LiquidCrystal_I2C lcd(0x3F,16,2);  // set the LCD address to 0x27 for a 16 chars and 2 line display
-
+      
+      LiquidCrystal_I2C lcd(0x3F,16,2);  // set the LCD address to 0x3F for 16 chars and 2 line display
+      
+      //#define TUNING // Uncomment if tuning panel is attached
+      // #define BATTERY_METER // Uncomment if using battery voltage divider
+      
 
 ////////////////////////////////////////////
 // PID constants ///////////////////////////
 ////////////////////////////////////////////
 
 
-      float kp = 60.0;
-      float ki = 0.0; 
-      float kd = 7.5;
+      float kp = 55.0;
+      float kd = 7.0;
 
-      //#define TUNING // Uncomment if tuning panel is attached
+      float setpoint = 81.0; // Initial degree setpoint
 
 
 ////////////////////////////////////////////
 // PID output variable /////////////////////
 ////////////////////////////////////////////
-
+    
       
-      float setpoint = 81.0; // Initial degree setpoint
-      
-      bool ki_enable = false; //Enables integral regulator if true, disabled if false
-      
+      int max_roll = 15; // Max degrees from setpoint before motor will stop
+      int min_roll = 10; // Min degrees from setpoint before motor will stop
       float deadband = 0.0; // +-degrees of deadband around setpoint where motor output is zero
-      int max_roll = 12; // Max degrees from setpoint before motor will stop
-      int min_roll = 8; // Min degrees from setpoint before motor will stop
 
 
 ////////////////////////////////////////////
@@ -127,13 +126,9 @@
 ////////////////////////////////////////////
 
 
-      bool motor_direction_forward = false;  // Set motor direction forward/reverse
-      
       float pushback_angle = 2.1;  // Degrees where pushback should activate *Must be less than max_roll*
       float throttle_expo_factor = 11.0; // How strong the throttle expo is after the pushback angle
-      
       int throttle_expo = 0; // Standard throttle_expo value *DONT CHANGE*
-      bool fall_detection_trigger = false; // Default value fall detection *DONT CHANGE*
 
 
 ////////////////////////////////////////////
@@ -141,8 +136,8 @@
 ////////////////////////////////////////////
 
 
-      float Umax = 255.0;  // Max output
-      float Umin = -255.0; // Min output
+      float Umax = 255.0;  // Adjust max output
+      float Umin = -255.0; // Adjust Min output
       
       float p_term = 0.0; // Store propotional value
       float i_term = 0.0; // Store integral value
@@ -153,7 +148,7 @@
       
       int output = 0; // PID output
       int total_output = 0; // PID output + throttle_expo
-      int pid_output = 0;
+      int pid_output = 0; // PID out in main loop
       float angle = 0;
 
 
@@ -179,13 +174,14 @@
 // Motor Driver BTS7960 pins ///////////////
 ////////////////////////////////////////////
 
-
+      
+      bool motor_direction_forward = false;  // Set motor direction forward/reverse
+      int frequency = 2000; // Default motor frequency (in Hz)
+      
       int RPWM = 9; // Forward pwm input
       int LPWM = 10; // Reverse pwm input
       int R_EN = 7; // Forward drive enable input
       int L_EN = 8; // Reverse drive enable input
-      
-      int32_t frequency = 2000; // Motor frequency (in Hz)
 
 
 ////////////////////////////////////////////
@@ -193,7 +189,7 @@
 ////////////////////////////////////////////
 
 
-      int button_pin = 4; //Menu button pin
+      int menu_button_pin = 4; //Menu button pin
       int menu_item = 0; //Default mode menu item
 
 
@@ -239,11 +235,9 @@
 // Battery Voltage Divider /////////////////
 ////////////////////////////////////////////
 
-
-      // #define BATTERY_METER // Uncomment if using battery voltage divider
       
-      int battery_loop_counter = 0;
       int batteryPin = A3; // Sensor value 0-1023
+      int battery_loop_counter = 0;
       float divider_output = 4.04; // Measured output voltage on full battery
       float vOut = 0.0; // Output voltage
       float vIn = 0.0; // Calculated input voltage
@@ -292,18 +286,12 @@
         // Propotional
         p_term = error;  
 
-        // Integral
-        if (ki_enable){
-          i_term += (ki * error * delta_t);
-        }
-        else i_term = 0; // Disable integral regulator
-
         // Derivative
         d_term = kd * ((error - last_error) / delta_t); 
 
 
         // Calculate output
-        output = kp * (p_term + i_term + d_term); 
+        output = kp * (p_term + d_term); 
 
       
         // Limit output
@@ -338,9 +326,8 @@
       
       void motor(int pwm, float angle){
 
-        // Write to motor with new frequecy (Forward)
-        if (motor_direction_forward == true){
-          if (angle > (setpoint + deadband)){ 
+        if (motor_direction_forward == true){ // Check motor direction
+          if (angle > (setpoint + deadband)){ // Write pwm value to motor
             pwmWrite(LPWM, abs(pwm));
           }
           else if (angle < (setpoint - deadband)){ 
@@ -348,9 +335,8 @@
           }
         }
         
-        // Write to motor with new frequecy (Backward)
         else{
-          if (angle > (setpoint + deadband)){ 
+          if (angle > (setpoint + deadband)){ // Write pwm value to motor
             pwmWrite(RPWM, abs(pwm));
           }
           else if (angle < (setpoint - deadband)){ 
@@ -425,13 +411,13 @@
           kalAngleX = kalmanX.getAngle(roll, gyroXrate, dt); // Calculate the angle using a Kalman filter
         #endif
       
-        //gyroXangle += gyroXrate * dt; // Calculate gyro angle without any filter
-        //gyroYangle += gyroYrate * dt;
-        gyroXangle += kalmanX.getRate() * dt; // Calculate gyro angle using the unbiased rate
-        gyroYangle += kalmanY.getRate() * dt;
+        gyroXangle += gyroXrate * dt; // Calculate gyro angle without any filter
+        gyroYangle += gyroYrate * dt;
+        //gyroXangle += kalmanX.getRate() * dt; // Calculate gyro angle using the unbiased rate
+        //gyroYangle += kalmanY.getRate() * dt;
       
-        compAngleX = 0.99 * (compAngleX + gyroXrate * dt) + 0.01 * roll; // Calculate the angle using a Complimentary filter
-        compAngleY = 0.99 * (compAngleY + gyroYrate * dt) + 0.01 * pitch;
+        compAngleX = 0.993 * (compAngleX + gyroXrate * dt) + 0.007 * roll; // Calculate the angle using a Complimentary filter
+        compAngleY = 0.993 * (compAngleY + gyroYrate * dt) + 0.007 * pitch;
       
         // Reset the gyro angle when it has drifted too much
         if (gyroXangle < -180 || gyroXangle > 180)
@@ -519,74 +505,63 @@
 
         lcd.clear();
         lcd.setCursor(0, 0);
-        lcd.print("Mode: Strong 2k ");
+        lcd.print("Lights: Off  ");
+        lcd.setCursor(0, 1);
+        lcd.print("Frequency: 2kHz       ");
         
         while(int(setpoint - get_angle()) != 0){
           
           get_angle();
 
           // Read time button is pressed
-          if(digitalRead(button_pin) == HIGH){
+          if(digitalRead(menu_button_pin) == HIGH){
             int button_timer1 = millis();
             
-            while(digitalRead(button_pin) == HIGH){
+            while(digitalRead(menu_button_pin) == HIGH){
               int button_timer2 = millis();
 
 
-              // If button has been pressed for more than one sec, change light color
+              // If button has been pressed for more than one sec, change frequency mode
               if((button_timer2 - button_timer1) > 1000){
+
+                // Cycle frequency menu
+                if(menu_item >= 3)
+                  menu_item = 0;
+                else
+                  menu_item++;
                 
                 tone(buzzerPin, 2000, 300);
                 
-                lcd.setCursor(0, 0);
+                lcd.setCursor(0, 1);
                 
-                switch(lightMenu){
+                switch (menu_item){
                   case 0:{
-                    lcd.print("Lights: Green      ");
-                    for(int i1=0;i1<numPixel;i1++){
-                      pixels.setPixelColor(i1, pixels.Color(0,200,0)); // Set color green
-                    }
-                    for(int i1=8;i1<numPixel;i1++){
-                      pixels.setPixelColor(i1, pixels.Color(200,200,200)); // Set color white
-                    }
+                    lcd.print("Frequency: 2kHz       ");
+                    frequency = 2000;            
                   }
                   break;
                   case 1:{
-                    lcd.print("Lights: Blue      ");
-                    for(int i1=0;i1<8;i1++){
-                      pixels.setPixelColor(i1, pixels.Color(0,0,200)); // Set color blue
-                    }
-                    for(int i1=8;i1<numPixel;i1++){
-                      pixels.setPixelColor(i1, pixels.Color(200,200,200)); // Set color white
-                    }
+                    lcd.print("Frequency: 1kHz       ");
+                    frequency = 1000;
                   }
                   break;
                   case 2:{
-                    lcd.print("Lights: Red      ");
-                    for(int i1=0;i1<8;i1++){
-                      pixels.setPixelColor(i1, pixels.Color(200,0,0)); // Set color red
-                    }
-                    for(int i1=8;i1<numPixel;i1++){
-                      pixels.setPixelColor(i1, pixels.Color(200,200,200)); // Set color white
-                    }
+                    lcd.print("Frequency: 600hz       ");
+                    frequency = 600;
                   }
                   break;
                   case 3:{
-                    lcd.print("Lights: Off      ");
-                    for(int i1=0;i1<numPixel;i1++){
-                      pixels.setPixelColor(i1, pixels.Color(0,0,0)); // Set color none
-                    }
+                    lcd.print("Frequency: 500hz       ");
+                    frequency = 500;
                   }
                   break;
                 }
-                pixels.show();  // Send updated pixel color value to hardware 
-
-                // Cycle light menu
-                if(lightMenu >= 3)
-                  lightMenu = 0;
-                else
-                  lightMenu++;
-             
+                
+                // Checks if frequency is changed sucessfully
+                bool success_pwm_1 = SetPinFrequencySafe(RPWM, frequency); 
+                bool success_pwm_2 = SetPinFrequencySafe(LPWM, frequency);
+                while(!success_pwm_1 || !success_pwm_2);
+                
                 delay(500);
                 break;
               }
@@ -596,55 +571,68 @@
             if((button_timer2 - button_timer1) > 1000);
 
 
-            // If short press on menu button, change frequency mode
-            else{
+            else{ // If short press on menu button, change light mode
               
-              // Cycle frequency menu
-              if(menu_item >= 3)
-                menu_item = 0;
+              // Cycle light menu
+              if(lightMenu >= 3)
+                lightMenu = 0;
               else
-                menu_item++;
-              
+                lightMenu++;
+                              
               tone(buzzerPin, 2000, 100);
               
               lcd.setCursor(0, 0);
               
-              switch (menu_item){
+              switch(lightMenu){
                 case 0:{
-                  lcd.print("Mode: Strong 2k  ");
-                  frequency = 2000;            
+                  lcd.print("Lights: Off  ");
+                  for(int i1=0;i1<numPixel;i1++){
+                    pixels.setPixelColor(i1, pixels.Color(0,0,0)); // Set color none
+                  }
                 }
                 break;
                 case 1:{
-                  lcd.print("Mode: Xstrong 1k  ");
-                  frequency = 1000;
+                  lcd.print("Lights: Green");
+                  for(int i1=0;i1<numPixel;i1++){
+                    pixels.setPixelColor(i1, pixels.Color(0,200,0)); // Set color green
+                  }
+                  for(int i1=8;i1<numPixel;i1++){
+                    pixels.setPixelColor(i1, pixels.Color(200,200,200)); // Set color white
+                  }
                 }
                 break;
                 case 2:{
-                  lcd.print("Mode: Light 4k  ");
-                  frequency = 4000;
+                  lcd.print("Lights: Blue ");
+                  for(int i1=0;i1<8;i1++){
+                    pixels.setPixelColor(i1, pixels.Color(0,0,200)); // Set color blue
+                  }
+                  for(int i1=8;i1<numPixel;i1++){
+                    pixels.setPixelColor(i1, pixels.Color(200,200,200)); // Set color white
+                  }
                 }
                 break;
                 case 3:{
-                  lcd.print("Mode: Silent 16k  ");
-                  frequency = 16000;
+                  lcd.print("Lights: Red  ");
+                  for(int i1=0;i1<8;i1++){
+                    pixels.setPixelColor(i1, pixels.Color(200,0,0)); // Set color red
+                  }
+                  for(int i1=8;i1<numPixel;i1++){
+                    pixels.setPixelColor(i1, pixels.Color(200,200,200)); // Set color white
+                  }
                 }
                 break;
               }
-              
-              // Checks if frequency is changed sucessfully
-              bool success_pwm_1 = SetPinFrequencySafe(RPWM, frequency); 
-              bool success_pwm_2 = SetPinFrequencySafe(LPWM, frequency);
-              while(!success_pwm_1 || !success_pwm_2);
+              pixels.show();  // Send updated pixel color value to hardware 
+           
   
-              delay(300);
+              delay(200);
             }
             
           
           }
           // Prints angle from setpoint
-          lcd.setCursor(0, 1);
-          lcd.print("Tilt to zero: ");
+          lcd.setCursor(14, 0);
+          //lcd.print("Tilt to zero: ");
           lcd.print(int(get_angle() - setpoint));
           lcd.print("   ");
         }
@@ -782,8 +770,8 @@
       
       void loop(){ 
 
-        
-        #ifdef TUNING
+
+        #ifdef TUNING // If tuning panel is attached
           int potP = map(analogRead(A0), 0, 1023, 0, 100);
           kp = potP;
       
@@ -800,85 +788,64 @@
         pid_output = get_pid(abs(angle)); 
     
   
-          // If roll angle is greater than max roll, stop motor
+        // If roll angle is greater than max roll, stop motor
         if (angle > (setpoint + max_roll) || angle < (setpoint - min_roll)){ 
         
           digitalWrite(R_EN,LOW);
           digitalWrite(L_EN,LOW);
           motor(0, angle);
-
-          fall_detection_trigger = true; // Fall detected
-
-          if(fall_detection_trigger = true){
             
-            lcd.setCursor(0, 0);
-            lcd.print(" FALL DETECTED! ");
-            lcd.setCursor(0, 1);
-            lcd.print("Please restart...");
-              
-            while(1){
-              // Light up neopixel ledstrip
-              for(int i1=0;i1<4;i1++){
-                pixels.setPixelColor(i1, pixels.Color(200,0,0)); // Set color
-                pixels.setPixelColor(7-i1, pixels.Color(200,0,0)); // Set color
-              }
-              pixels.show(); // Send updated pixel color value to hardware
-              tone(buzzerPin, 2000, 500);
-              delay(500);
-              
-              for(int i1=0;i1<4;i1++){
-                pixels.setPixelColor(i1, pixels.Color(0,0,0)); // Set color
-                pixels.setPixelColor(7-i1, pixels.Color(0,0,0)); // Set color
-              }
-              pixels.show();  // Send updated pixel color value to hardware
-              delay(500);
+          lcd.setCursor(0, 0);
+          lcd.print(" FALL DETECTED! ");
+          lcd.setCursor(0, 1);
+          lcd.print("Please restart...");
+            
+          while(1){
+            for(int i1=0;i1<4;i1++){ // Light up neopixel ledstrip
+              pixels.setPixelColor(i1, pixels.Color(200,0,0)); // Set color
+              pixels.setPixelColor(7-i1, pixels.Color(200,0,0)); // Set color
             }
-          }
+            pixels.show(); // Send updated pixel color value to hardware
+            tone(buzzerPin, 2000, 500);
+            delay(500);
+            
+            for(int i1=0;i1<4;i1++){
+              pixels.setPixelColor(i1, pixels.Color(0,0,0)); // Set color
+              pixels.setPixelColor(7-i1, pixels.Color(0,0,0)); // Set color
+            }
+            pixels.show();  // Send updated pixel color value to hardware
+            delay(500);
+            }
         }
 
-        // Else enable and send output value to motor
-        else{ 
-
+        else{
+          
           // Enable and write PID output value to motor
-          digitalWrite(R_EN,HIGH);
+          digitalWrite(R_EN,HIGH); 
           digitalWrite(L_EN,HIGH);
           motor(pid_output, angle); 
-    
-          
+              
           int motorPower = int(abs(100.0f/Umax) * pid_output); // Shows motor output in % of total
           int offset = int(setpoint - angle); // Shows error from setpoint in degrees
           float offsetFine = float(angle - setpoint); // Shows error from setpoint in degrees
-    
-    
+
+
           //Turn on stats when angle and motor power is zero
-          if(offset == 0 && motorPower == 0){
-            enableStats = true;
-          }
+          if(offset == 0 && motorPower == 0){enableStats = true;} 
           
-          if(abs(motorPower) > maxOutput && enableStats){
-            maxOutput = abs(motorPower);
-          }
-          else if (!enableStats){
-            maxOutput = 0;
-          }
+          if(abs(motorPower) > maxOutput && enableStats){maxOutput = abs(motorPower);}
+          else if (!enableStats){maxOutput = 0;}
     
-          if(abs(offset) > maxAngle && enableStats){
-            maxAngle = abs(offset);
-          }
-          else if (!enableStats){
-            maxAngle = 0;
-          }
+          if(abs(offset) > maxAngle && enableStats){maxAngle = abs(offset);}
+          else if (!enableStats){maxAngle = 0;}
 
 
           // Horn button
-          if(digitalRead(button_pin) == HIGH){
-            tone(buzzerPin, 2000, 50);
-          }
+          if(digitalRead(menu_button_pin) == HIGH){tone(buzzerPin, 2000, 50);}
 
           // Alert if angle is 3.0 or more
-          if(abs(offset) >= 3.0){
-            tone(buzzerPin, 1600, 500);
-          }
+          if(abs(offset) >= 3.0){tone(buzzerPin, 1600, 500);}
+          
           
           // LCD output            
           lcd.setCursor(0, 0);
