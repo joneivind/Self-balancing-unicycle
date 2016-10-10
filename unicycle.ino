@@ -22,7 +22,6 @@
   * GND      GND        GND
   * SCL      A5         C21
   * SDA      A4         C20
-  * Int      D2         D2      (Optional)
   
   //////////////////////////
   // Motor Driver BTS7960 //
@@ -33,12 +32,12 @@
   * LPWM    D10                 Reverse pwm input
   * R_EN    D7                  Forward drive enable input, can be bridged with L_EN
   * L_EN    D8                  Reverse drive enable input, can be bridged with R_EN
-  * R_IS    -                   Current alarm, not used
-  * L_IS    -                   Current alarm, not used
-  * B+      Battery+
-  * B-      Battery-
-  * M+      Motor+
-  * M-      Motor-
+  * R_IS                        Current alarm, not used
+  * L_IS                        Current alarm, not used
+  * B+                          Battery+
+  * B-                          Battery-
+  * M+                          Motor+
+  * M-                          Motor-
 
   ////////////////////////////////////////
   // 16x2 LCD display with I2C backpack //
@@ -58,16 +57,14 @@
   ////////////
   // Buzzer //
   ////////////
-  * SIGNAL(+) D11
+  * SIGNAL  D11
   * GND     GND
 
   //////////////////
   // Reset button //
   //////////////////
-  * SIGNAL  D4          D4
-  * SIGNAL_HIGH D12
-  * LED     D5          D5
-  * GND     GND         GND
+  * SIGNAL  D4
+  * GND     GND
 
   ///////////////////////////////////////////////////////////////
   // Voltage divider 0-24v -> 0-5v ( R1: 470k, R2: 100k + 10k) //
@@ -76,69 +73,50 @@
 
 
   *** Credits *** 
-  MPU6050 code: http://www.pitt.edu/~mpd41/Angle.ino
-  Softwarefilter: http://www.elcojacobs.com/eleminating-noise-from-sensor-readings-on-arduino-with-digital-filtering/
+  MPU6050/Kalman filter: https://github.com/TKJElectronics/KalmanFilter
+  Medianfilter: http://www.elcojacobs.com/eleminating-noise-from-sensor-readings-on-arduino-with-digital-filtering/
 
 */
 
 
 ////////////////////////////////////////////
-// Imports /////////////////////////////////
+// Library /////////////////////////////////
 ////////////////////////////////////////////
 
 
       #include <Wire.h>
-      #include "Kalman.h" // Source: https://github.com/TKJElectronics/KalmanFilter
+      #include "Kalman.h"
       #include <LiquidCrystal_I2C.h>
       #include <Adafruit_NeoPixel.h>
       #include <avr/power.h>
-      #include <PWM.h> // PWM frequecy alternator
+      #include <PWM.h>
       
-      LiquidCrystal_I2C lcd(0x3F,16,2);  // set the LCD address to 0x3F for 16 chars and 2 line display
       
-      //#define TUNING // Uncomment if tuning panel is attached
-      // #define BATTERY_METER // Uncomment if using battery voltage divider
-      
-
 ////////////////////////////////////////////
 // PID constants ///////////////////////////
 ////////////////////////////////////////////
 
 
-      float kp = 55.0;
-      float kd = 7.0;
-
-      float setpoint = 81.0; // Initial degree setpoint
-
-
-////////////////////////////////////////////
-// PID output variable /////////////////////
-////////////////////////////////////////////
-    
+      float kp = 55.0; // P-value
+      float kd = 7.0; // D-value
+      float setpoint = 81.0; // Setpoint (Balance point)
       
+      //#define TUNING // Uncomment if tuning panel is attached
+
+
+////////////////////////////////////////////
+// Output variables ////////////////////////
+////////////////////////////////////////////
+
+
+      float Umax = 255.0;  // Adjust max output 0-255
+      float Umin = -255.0; // Adjust Min output 0-(-255)
+
       int max_roll = 15; // Max degrees from setpoint before motor will stop
       int min_roll = 10; // Min degrees from setpoint before motor will stop
-      float deadband = 0.0; // +-degrees of deadband around setpoint where motor output is zero
 
 
-////////////////////////////////////////////
-// Pushback function ///////////////////////
-////////////////////////////////////////////
-
-
-      float pushback_angle = 2.1;  // Degrees where pushback should activate *Must be less than max_roll*
-      float throttle_expo_factor = 11.0; // How strong the throttle expo is after the pushback angle
-      int throttle_expo = 0; // Standard throttle_expo value *DONT CHANGE*
-
-
-////////////////////////////////////////////
-// PID variables ///////////////////////////
-////////////////////////////////////////////
-
-
-      float Umax = 255.0;  // Adjust max output
-      float Umin = -255.0; // Adjust Min output
-      
+      // Storage variables //
       float p_term = 0.0; // Store propotional value
       float i_term = 0.0; // Store integral value
       float d_term = 0.0; // Store derivative value
@@ -153,11 +131,22 @@
 
 
 ////////////////////////////////////////////
-// Stats ///////////////////////////////////
+// Pushback function (Not active) //////////
 ////////////////////////////////////////////
 
 
-      bool enableStats = false; // Enable stats - turns true when angle is zero 
+      float pushback_angle = 2.1;  // Degrees where pushback should activate *Must be less than max_roll*
+      float throttle_expo_factor = 11.0; // How strong the throttle expo is after the pushback angle
+      int throttle_expo = 0; // Standard throttle_expo value *DONT CHANGE*
+
+      
+////////////////////////////////////////////
+// Stats ///////////////////////////////////
+////////////////////////////////////////////
+
+      
+      // Storage variables //
+      bool enableStats = false; // Turns on stats when angle is zero 
       int maxOutput = 0; // Shows max pid output
       int maxAngle = 0; // Shows max angle
 
@@ -224,11 +213,10 @@
       
       
       int ledPin = 6; // Pin for rgb neopixel strip
-      int numPixel = 15; // How many NeoPixels are attached to the Arduino?
+      int numPixel = 15; // How many NeoPixels are attached
       int lightMenu = 0; // Default light menu item
       
       Adafruit_NeoPixel pixels = Adafruit_NeoPixel(numPixel, ledPin, NEO_GRB + NEO_KHZ800);
-
 
 
 ////////////////////////////////////////////
@@ -236,14 +224,19 @@
 ////////////////////////////////////////////
 
       
+      //#define BATTERY_METER // Uncomment if using battery voltage divider
+      
       int batteryPin = A3; // Sensor value 0-1023
-      int battery_loop_counter = 0;
-      float divider_output = 4.04; // Measured output voltage on full battery
-      float vOut = 0.0; // Output voltage
-      float vIn = 0.0; // Calculated input voltage
+      
       float R1 = 472000.0; // R1 resistor (470K)
       float R2 = 111000.0; // R2 resistor (10K + 100K)
-      float battery = 0.0;
+      float divider_output = 4.04; // Set this to the measured max output voltage from divider
+
+      // Storage variables // 
+      float battery = 0.0; 
+      float vOut = 0.0; // Output voltage
+      float vIn = 0.0; // Calculated input voltage
+      int battery_loop_counter = 0;
 
 
 ////////////////////////////////////////////
@@ -252,6 +245,7 @@
 
       
       int buzzerPin = 11; // Pin for buzzer output
+      LiquidCrystal_I2C lcd(0x3F,16,2);  // set the LCD address to 0x3F for 16 chars and 2 line display
 
 
 ////////////////////////////////////////////
@@ -264,9 +258,7 @@
         float delta_t = millis() - lastTime; // Delta time
         lastTime = millis(); // Reset timer
 
-
-        // Calculate error, e=SP-Y
-        error = setpoint - angle; 
+        error = setpoint - angle; // Calculate error, e=SP-Y
 
         
         /*
@@ -324,26 +316,24 @@
 ////////////////////////////////////////////
       
       
-      void motor(int pwm, float angle){
+      void motor(int pwm, float angle){ // pwm = Power, angle = Forward/backward
 
-        if (motor_direction_forward == true){ // Check motor direction
-          if (angle > (setpoint + deadband)){ // Write pwm value to motor
+        if (motor_direction_forward == true){
+          if (angle > setpoint){
             pwmWrite(LPWM, abs(pwm));
           }
-          else if (angle < (setpoint - deadband)){ 
+          else if (angle < setpoint){ 
             pwmWrite(RPWM, abs(pwm));
           }
         }
-        
         else{
-          if (angle > (setpoint + deadband)){ // Write pwm value to motor
+          if (angle > setpoint){
             pwmWrite(RPWM, abs(pwm));
           }
-          else if (angle < (setpoint - deadband)){ 
+          else if (angle < setpoint){ 
             pwmWrite(LPWM, abs(pwm));
           }
         }
-        
       }
 
 
@@ -354,7 +344,7 @@
 
       float get_angle(){ 
         
-        /* Update all the values */
+        // Update all the values
         while (i2cRead(0x3B, i2cData, 14));
         accX = ((i2cData[0] << 8) | i2cData[1]);
         accY = ((i2cData[2] << 8) | i2cData[3]);
@@ -411,13 +401,13 @@
           kalAngleX = kalmanX.getAngle(roll, gyroXrate, dt); // Calculate the angle using a Kalman filter
         #endif
       
-        gyroXangle += gyroXrate * dt; // Calculate gyro angle without any filter
-        gyroYangle += gyroYrate * dt;
-        //gyroXangle += kalmanX.getRate() * dt; // Calculate gyro angle using the unbiased rate
-        //gyroYangle += kalmanY.getRate() * dt;
+        //gyroXangle += gyroXrate * dt; // Calculate gyro angle without any filter
+        //gyroYangle += gyroYrate * dt;
+        gyroXangle += kalmanX.getRate() * dt; // Calculate gyro angle using the unbiased rate
+        gyroYangle += kalmanY.getRate() * dt;
       
-        compAngleX = 0.993 * (compAngleX + gyroXrate * dt) + 0.007 * roll; // Calculate the angle using a Complimentary filter
-        compAngleY = 0.993 * (compAngleY + gyroYrate * dt) + 0.007 * pitch;
+        compAngleX = 0.99 * (compAngleX + gyroXrate * dt) + 0.01 * roll; // Calculate the angle using a Complimentary filter
+        compAngleY = 0.99 * (compAngleY + gyroYrate * dt) + 0.01 * pitch;
       
         // Reset the gyro angle when it has drifted too much
         if (gyroXangle < -180 || gyroXangle > 180)
@@ -435,8 +425,9 @@
 ////////////////////////////////////////////
       
       
-      #define NUM_READS 10
-      float medianfilter(int sensorpin){
+      #define NUM_READS 10 // How many values to process
+      
+      float medianfilter(int sensorpin){ // Returns the median of the input sensor
         
          // read multiple values and sort them to take the mode
          int sortedValues[NUM_READS];
@@ -466,6 +457,7 @@
            returnval +=sortedValues[i];
          }
          returnval = returnval/10;
+         
          return returnval*1100/1023;
       }
 
@@ -511,15 +503,14 @@
         
         while(int(setpoint - get_angle()) != 0){
           
-          get_angle();
+          get_angle(); // Get angle from gyro
 
-          // Read time button is pressed
+          // Read time menubutton is pressed
           if(digitalRead(menu_button_pin) == HIGH){
             int button_timer1 = millis();
             
             while(digitalRead(menu_button_pin) == HIGH){
               int button_timer2 = millis();
-
 
               // If button has been pressed for more than one sec, change frequency mode
               if((button_timer2 - button_timer1) > 1000){
@@ -534,7 +525,7 @@
                 
                 lcd.setCursor(0, 1);
                 
-                switch (menu_item){
+                switch (menu_item){ // Change frequency mode
                   case 0:{
                     lcd.print("Frequency: 2kHz       ");
                     frequency = 2000;            
@@ -551,8 +542,8 @@
                   }
                   break;
                   case 3:{
-                    lcd.print("Frequency: 500hz       ");
-                    frequency = 500;
+                    lcd.print("Frequency: 300hz       ");
+                    frequency = 300;
                   }
                   break;
                 }
@@ -583,7 +574,7 @@
               
               lcd.setCursor(0, 0);
               
-              switch(lightMenu){
+              switch(lightMenu){ // Change lights
                 case 0:{
                   lcd.print("Lights: Off  ");
                   for(int i1=0;i1<numPixel;i1++){
@@ -624,15 +615,11 @@
               }
               pixels.show();  // Send updated pixel color value to hardware 
            
-  
               delay(200);
-            }
-            
-          
+            }                      
           }
           // Prints angle from setpoint
           lcd.setCursor(14, 0);
-          //lcd.print("Tilt to zero: ");
           lcd.print(int(get_angle() - setpoint));
           lcd.print("   ");
         }
@@ -649,15 +636,15 @@
         
         // Initialize lcd display
         lcd.begin();
-        lcd.clear(); // Clear display        
+        lcd.clear();      
         lcd.setCursor(0, 0);
-        lcd.print("  SB Unicycle  ");
+        lcd.print("  SB Unicycle  "); // Intro text
         lcd.setCursor(0, 1);
         lcd.print("   Booting...  ");
-        lcd.backlight(); // Turn on backlight
+        lcd.backlight();
 
         
-        tone(buzzerPin, 2000, 80);
+        tone(buzzerPin, 2000, 80); // Startup sound
         delay(100);
         tone(buzzerPin, 2000, 80);
         delay(100);
@@ -673,7 +660,7 @@
         pixels.begin(); // initialize the NeoPixel library
 
     
-        // Gyro / I2C / Kalman startup
+        // Gyro/I2C/Kalman startup
         TWBR = ((F_CPU / 400000L) - 16) / 2; // Set I2C frequency to 400kHz
   
         i2cData[0] = 7; // Set the sample rate to 1000Hz - 8kHz/(7+1) = 1000Hz
@@ -691,7 +678,7 @@
       
         delay(100); // Wait for sensor to stabilize
       
-        /* Set kalman and gyro starting angle */
+        // Set kalman and gyro starting angle
         while (i2cRead(0x3B, i2cData, 6));
         accX = (i2cData[0] << 8) | i2cData[1];
         accY = (i2cData[2] << 8) | i2cData[3];
@@ -757,7 +744,7 @@
         startup_menu();
 
 
-        // Beeps when started
+        // Beep when setpoint is reached
         tone(buzzerPin, 2400, 300);
       }
 
@@ -771,7 +758,7 @@
       void loop(){ 
 
 
-        #ifdef TUNING // If tuning panel is attached
+        #ifdef TUNING // If tuning panel is attached, read PID input
           int potP = map(analogRead(A0), 0, 1023, 0, 100);
           kp = potP;
       
@@ -788,7 +775,7 @@
         pid_output = get_pid(abs(angle)); 
     
   
-        // If roll angle is greater than max roll, stop motor
+        // If roll angle is greater than max roll or less than min roll, stop motor
         if (angle > (setpoint + max_roll) || angle < (setpoint - min_roll)){ 
         
           digitalWrite(R_EN,LOW);
@@ -824,11 +811,11 @@
           digitalWrite(R_EN,HIGH); 
           digitalWrite(L_EN,HIGH);
           motor(pid_output, angle); 
+
               
           int motorPower = int(abs(100.0f/Umax) * pid_output); // Shows motor output in % of total
           int offset = int(setpoint - angle); // Shows error from setpoint in degrees
           float offsetFine = float(angle - setpoint); // Shows error from setpoint in degrees
-
 
           //Turn on stats when angle and motor power is zero
           if(offset == 0 && motorPower == 0){enableStats = true;} 
