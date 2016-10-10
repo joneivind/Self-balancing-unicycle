@@ -8,7 +8,7 @@
 * Uses MPU6050 IMU gyro/acc with Kalman software filter
 * Adjustable PID controller 
 * Support LCD display (16x2 default)
-* Battery status in display
+* Battery status
 * Pushback function
 * Motor kill switch based on angle
 * Support for WS2812B led strip
