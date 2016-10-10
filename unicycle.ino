@@ -116,9 +116,8 @@
       int min_roll = 10; // Min degrees from setpoint before motor will stop
 
 
-      // Storage variables //
+      // Storage variables
       float p_term = 0.0; // Store propotional value
-      float i_term = 0.0; // Store integral value
       float d_term = 0.0; // Store derivative value
       
       float error = 0.0; // Sum error
@@ -145,7 +144,7 @@
 ////////////////////////////////////////////
 
       
-      // Storage variables //
+      // Storage variables
       bool enableStats = false; // Turns on stats when angle is zero 
       int maxOutput = 0; // Shows max pid output
       int maxAngle = 0; // Shows max angle
@@ -156,7 +155,7 @@
 ////////////////////////////////////////////
 
 
-      int lastTime = millis(); //Dt timer PID loop
+      int lastTime = millis(); // Dt timer PID loop
 
 
 ////////////////////////////////////////////
@@ -178,7 +177,7 @@
 ////////////////////////////////////////////
 
 
-      int menu_button_pin = 4; //Menu button pin
+      int menu_button_pin = 4; // Menu button pin
       int menu_item = 0; //Default mode menu item
 
 
@@ -429,13 +428,13 @@
       
       float medianfilter(int sensorpin){ // Returns the median of the input sensor
         
-         // read multiple values and sort them to take the mode
+         // Read multiple values and sort them to take the mode
          int sortedValues[NUM_READS];
          for(int i=0;i<NUM_READS;i++){
            int value = analogRead(sensorpin);
            int j;
            if(value<sortedValues[0] || i==0){
-              j=0; //insert at first position
+              j=0; // Insert at first position
            }
            else{
              for(j=1;j<i;j++){
@@ -446,12 +445,12 @@
              }
            }
            for(int k=i;k>j;k--){
-             // move all values higher than current reading up one position
+             // Move all values higher than current reading up one position
              sortedValues[k]=sortedValues[k-1];
            }
-           sortedValues[j]=value; //insert current reading
+           sortedValues[j]=value; // Insert current reading
          }
-         //return scaled mode of 10 values
+         // Return scaled mode of 10 values
          float returnval = 0;
          for(int i=NUM_READS/2-5;i<(NUM_READS/2+5);i++){
            returnval +=sortedValues[i];
