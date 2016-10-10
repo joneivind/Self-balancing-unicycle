@@ -164,7 +164,7 @@
 
       
       bool motor_direction_forward = false;  // Set motor direction forward/reverse
-      int frequency = 2000; // Default motor frequency (in Hz)
+      int frequency = 4000; // Default motor frequency (in Hz)
       
       int RPWM = 9; // Forward pwm input
       int LPWM = 10; // Reverse pwm input
@@ -178,7 +178,7 @@
 
 
       int menu_button_pin = 4; // Menu button pin
-      int menu_item = 0; //Default mode menu item
+      int menu_item = 3; // Default frequency menu item
 
 
 ////////////////////////////////////////////
@@ -405,8 +405,8 @@
         gyroXangle += kalmanX.getRate() * dt; // Calculate gyro angle using the unbiased rate
         gyroYangle += kalmanY.getRate() * dt;
       
-        compAngleX = 0.99 * (compAngleX + gyroXrate * dt) + 0.01 * roll; // Calculate the angle using a Complimentary filter
-        compAngleY = 0.99 * (compAngleY + gyroYrate * dt) + 0.01 * pitch;
+        compAngleX = 0.995 * (compAngleX + gyroXrate * dt) + 0.005 * roll; // Calculate the angle using a Complimentary filter
+        compAngleY = 0.995 * (compAngleY + gyroYrate * dt) + 0.005 * pitch;
       
         // Reset the gyro angle when it has drifted too much
         if (gyroXangle < -180 || gyroXangle > 180)
@@ -498,7 +498,7 @@
         lcd.setCursor(0, 0);
         lcd.print("Lights: Off  ");
         lcd.setCursor(0, 1);
-        lcd.print("Frequency: 2kHz       ");
+        lcd.print("Frequency: 4kHz       ");
         
         while(int(setpoint - get_angle()) != 0){
           
@@ -536,13 +536,13 @@
                   }
                   break;
                   case 2:{
-                    lcd.print("Frequency: 600hz       ");
+                    lcd.print("Frequency: 600Hz       ");
                     frequency = 600;
                   }
                   break;
                   case 3:{
-                    lcd.print("Frequency: 300hz       ");
-                    frequency = 300;
+                    lcd.print("Frequency: 4kHz       ");
+                    frequency = 4000;
                   }
                   break;
                 }
@@ -827,10 +827,10 @@
 
 
           // Horn button
-          if(digitalRead(menu_button_pin) == HIGH){tone(buzzerPin, 2000, 50);}
+          if(digitalRead(menu_button_pin) == HIGH){tone(buzzerPin, 2400, 50);}
 
-          // Alert if angle is 3.0 or more
-          if(abs(offset) >= 3.0){tone(buzzerPin, 1600, 500);}
+          // Alert if angle is 3.5 or more
+          if(abs(offset) >= 3.5){tone(buzzerPin, 1600, 500);}
           
           
           // LCD output            
