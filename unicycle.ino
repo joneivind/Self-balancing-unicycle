@@ -4,9 +4,11 @@
   ******* Self balancing unicycle *******
   ///////////////////////////////////////
 
-  Final year project in electrical engineering @ Høyskolen i Oslo Akershus, Norway.
-  By Jon-Eivind Stranden & Nicholai Kaas Iversen © 2016.
-  https://github.com/joneivind
+  Final year project electrical engineering @ Høyskolen i Oslo Akershus, Norway © 2016.
+  By Jon-Eivind Stranden & Nicholai Kaas Iversen.
+  
+  Web: https://github.com/joneivind
+  Contact: joneivinds@gmail.com
 
   
   ///////////////////////
@@ -213,7 +215,7 @@
       
       int ledPin = 6; // Pin for rgb neopixel strip
       int numPixel = 15; // How many NeoPixels are attached
-      int lightMenu = 0; // Default light menu item
+      int lightMenu = 1; // Default light menu item
       
       Adafruit_NeoPixel pixels = Adafruit_NeoPixel(numPixel, ledPin, NEO_GRB + NEO_KHZ800);
 
@@ -496,7 +498,7 @@
 
         lcd.clear();
         lcd.setCursor(0, 0);
-        lcd.print("Lights: Off  ");
+        lcd.print("Lights: Green  ");
         lcd.setCursor(0, 1);
         lcd.print("Frequency: 4kHz       ");
         
@@ -655,9 +657,24 @@
         Serial.begin(115200);
         Wire.begin();
 
+        delay(80);
 
         pixels.begin(); // initialize the NeoPixel library
 
+        for(int i1=0;i1<4;i1++){
+          for(int i2=0;i2<200;i2++){
+            pixels.setPixelColor(i1, pixels.Color(0,i2,0)); // Set color blue
+            pixels.setPixelColor(7-i1, pixels.Color(0,i2,0)); // Set color blue
+            pixels.show();
+          }
+        }
+        for(int i1=8;i1<numPixel;i1++){
+          for(int i2=0;i2<200;i2++){
+            pixels.setPixelColor(i1, pixels.Color(i2,i2,i2)); // Set color blue
+            pixels.show();
+          }
+        }
+        
     
         // Gyro/I2C/Kalman startup
         TWBR = ((F_CPU / 400000L) - 16) / 2; // Set I2C frequency to 400kHz
