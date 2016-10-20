@@ -661,14 +661,22 @@
 
         pixels.begin(); // initialize the NeoPixel library
 
+        
+        for(int i1=8;i1<10;i1++){
+          for(int i2=0;i2<200;i2++){
+            pixels.setPixelColor(i1, pixels.Color(i2,i2,i2)); // Set color blue
+            pixels.show();
+          }
+        }
         for(int i1=0;i1<4;i1++){
           for(int i2=0;i2<200;i2++){
             pixels.setPixelColor(i1, pixels.Color(0,i2,0)); // Set color blue
             pixels.setPixelColor(7-i1, pixels.Color(0,i2,0)); // Set color blue
+            pixels.setPixelColor(10+i1, pixels.Color(i2,i2,i2)); // Set color blue
             pixels.show();
           }
         }
-        for(int i1=8;i1<numPixel;i1++){
+        for(int i1=14;i1<numPixel;i1++){
           for(int i2=0;i2<200;i2++){
             pixels.setPixelColor(i1, pixels.Color(i2,i2,i2)); // Set color blue
             pixels.show();
