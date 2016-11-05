@@ -100,7 +100,7 @@
 
 
       float kp = 55.0; // P-value
-      float kd = 7.0; // D-value
+      float kd = 7.5; // D-value
       float setpoint = 81.0; // Setpoint (Balance point)
       
       //#define TUNING // Uncomment if tuning panel is attached
@@ -158,6 +158,7 @@
 
 
       int lastTime = millis(); // Dt timer PID loop
+      float main_loop_timer = millis();
 
 
 ////////////////////////////////////////////
@@ -402,16 +403,16 @@
           kalAngleX = kalmanX.getAngle(roll, gyroXrate, dt); // Calculate the angle using a Kalman filter
         #endif
       
-        //gyroXangle += gyroXrate * dt; // Calculate gyro angle without any filter
-        //gyroYangle += gyroYrate * dt;
-        gyroXangle += kalmanX.getRate() * dt; // Calculate gyro angle using the unbiased rate
-        gyroYangle += kalmanY.getRate() * dt;
+        gyroXangle += gyroXrate * dt; // Calculate gyro angle without any filter
+        gyroYangle += gyroYrate * dt;
+        //gyroXangle += kalmanX.getRate() * dt; // Calculate gyro angle using the unbiased rate
+        //gyroYangle += kalmanY.getRate() * dt;
       
-        compAngleX = 0.995 * (compAngleX + gyroXrate * dt) + 0.005 * roll; // Calculate the angle using a Complimentary filter
-        compAngleY = 0.995 * (compAngleY + gyroYrate * dt) + 0.005 * pitch;
+        compAngleX = 0.993 * (compAngleX + gyroXrate * dt) + 0.007 * roll; // Calculate the angle using a Complimentary filter
+        compAngleY = 0.95 * (compAngleY + gyroYrate * dt) + 0.05 * pitch;
       
         // Reset the gyro angle when it has drifted too much
-        if (gyroXangle < -180 || gyroXangle > 180)
+        if (gyroXangle < -5 || gyroXangle > 5)
           gyroXangle = kalAngleX;
         if (gyroYangle < -180 || gyroYangle > 180)
           gyroYangle = kalAngleY;
@@ -498,7 +499,7 @@
 
         lcd.clear();
         lcd.setCursor(0, 0);
-        lcd.print("Lights: Green  ");
+        lcd.print("Lights: Blue  ");
         lcd.setCursor(0, 1);
         lcd.print("Frequency: 4kHz       ");
         
@@ -584,9 +585,9 @@
                 }
                 break;
                 case 1:{
-                  lcd.print("Lights: Green");
-                  for(int i1=0;i1<numPixel;i1++){
-                    pixels.setPixelColor(i1, pixels.Color(0,200,0)); // Set color green
+                  lcd.print("Lights: Blue ");
+                  for(int i1=0;i1<8;i1++){
+                    pixels.setPixelColor(i1, pixels.Color(0,0,200)); // Set color blue
                   }
                   for(int i1=8;i1<numPixel;i1++){
                     pixels.setPixelColor(i1, pixels.Color(200,200,200)); // Set color white
@@ -594,9 +595,9 @@
                 }
                 break;
                 case 2:{
-                  lcd.print("Lights: Blue ");
-                  for(int i1=0;i1<8;i1++){
-                    pixels.setPixelColor(i1, pixels.Color(0,0,200)); // Set color blue
+                  lcd.print("Lights: Green");
+                  for(int i1=0;i1<numPixel;i1++){
+                    pixels.setPixelColor(i1, pixels.Color(0,200,0)); // Set color green
                   }
                   for(int i1=8;i1<numPixel;i1++){
                     pixels.setPixelColor(i1, pixels.Color(200,200,200)); // Set color white
@@ -620,7 +621,7 @@
             }                      
           }
           // Prints angle from setpoint
-          lcd.setCursor(14, 0);
+          lcd.setCursor(13, 0);
           lcd.print(int(get_angle() - setpoint));
           lcd.print("   ");
         }
@@ -670,8 +671,8 @@
         }
         for(int i1=0;i1<4;i1++){
           for(int i2=0;i2<200;i2++){
-            pixels.setPixelColor(i1, pixels.Color(0,i2,0)); // Set color blue
-            pixels.setPixelColor(7-i1, pixels.Color(0,i2,0)); // Set color blue
+            pixels.setPixelColor(i1, pixels.Color(0,0,i2)); // Set color blue
+            pixels.setPixelColor(7-i1, pixels.Color(0,0,i2)); // Set color blue
             pixels.setPixelColor(10+i1, pixels.Color(i2,i2,i2)); // Set color blue
             pixels.show();
           }
@@ -781,6 +782,10 @@
       
       void loop(){ 
 
+      if((millis() - main_loop_timer) >= 0.0){ // Looptime as fast as possible
+        
+        Serial.println((millis() - main_loop_timer));
+        main_loop_timer = millis(); // Reset main loop timer
 
         #ifdef TUNING // If tuning panel is attached, read PID input
           int potP = map(analogRead(A0), 0, 1023, 0, 100);
@@ -797,6 +802,9 @@
         // Get angle and calculate PID output
         angle = get_angle();        
         pid_output = get_pid(abs(angle)); 
+
+        //Serial.print(pid_output);
+        //Serial.print("\t");
     
   
         // If roll angle is greater than max roll or less than min roll, stop motor
@@ -874,4 +882,5 @@
           lcd.print("D:");
           lcd.print(abs(kd));
         }
+      }
       }
