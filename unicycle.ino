@@ -100,7 +100,7 @@
 
 
       float kp = 55.0; // P-value
-      float kd = 7.5; // D-value
+      float kd = 0.02; // D-value
       float setpoint = 81.0; // Setpoint (Balance point)
       
       //#define TUNING // Uncomment if tuning panel is attached
@@ -167,7 +167,7 @@
 
       
       bool motor_direction_forward = false;  // Set motor direction forward/reverse
-      int frequency = 4000; // Default motor frequency (in Hz)
+      int frequency = 2000; // Default motor frequency (in Hz)
       
       int RPWM = 9; // Forward pwm input
       int LPWM = 10; // Reverse pwm input
@@ -181,7 +181,7 @@
 
 
       int menu_button_pin = 4; // Menu button pin
-      int menu_item = 3; // Default frequency menu item
+      int menu_item = 0; // Default frequency menu item
 
 
 ////////////////////////////////////////////
@@ -278,14 +278,14 @@
         // Calculate PID
         
         // Propotional
-        p_term = error;  
+        p_term = kp * error;  
 
         // Derivative
         d_term = kd * ((error - last_error) / delta_t); 
 
 
         // Calculate output
-        output = kp * (p_term + d_term); 
+        output = p_term + d_term; 
 
       
         // Limit output
@@ -403,12 +403,12 @@
           kalAngleX = kalmanX.getAngle(roll, gyroXrate, dt); // Calculate the angle using a Kalman filter
         #endif
       
-        gyroXangle += gyroXrate * dt; // Calculate gyro angle without any filter
-        gyroYangle += gyroYrate * dt;
-        //gyroXangle += kalmanX.getRate() * dt; // Calculate gyro angle using the unbiased rate
-        //gyroYangle += kalmanY.getRate() * dt;
+        //gyroXangle += gyroXrate * dt; // Calculate gyro angle without any filter
+        //gyroYangle += gyroYrate * dt;
+        gyroXangle += kalmanX.getRate() * dt; // Calculate gyro angle using the unbiased rate
+        gyroYangle += kalmanY.getRate() * dt;
       
-        compAngleX = 0.993 * (compAngleX + gyroXrate * dt) + 0.007 * roll; // Calculate the angle using a Complimentary filter
+        compAngleX = 0.995 * (compAngleX + gyroXrate * dt) + 0.005 * roll; // Calculate the angle using a Complimentary filter
         compAngleY = 0.95 * (compAngleY + gyroYrate * dt) + 0.05 * pitch;
       
         // Reset the gyro angle when it has drifted too much
@@ -501,7 +501,7 @@
         lcd.setCursor(0, 0);
         lcd.print("Lights: Blue  ");
         lcd.setCursor(0, 1);
-        lcd.print("Frequency: 4kHz       ");
+        lcd.print("Frequency: 2kHz       ");
         
         while(int(setpoint - get_angle()) != 0){
           
@@ -782,10 +782,12 @@
       
       void loop(){ 
 
-      if((millis() - main_loop_timer) >= 0.0){ // Looptime as fast as possible
+      if((millis() - main_loop_timer) >= 25.0){ // Looptime 25ms
+
         
-        Serial.println((millis() - main_loop_timer));
+        //Serial.println((millis() - main_loop_timer)); // Debug looptime
         main_loop_timer = millis(); // Reset main loop timer
+
 
         #ifdef TUNING // If tuning panel is attached, read PID input
           int potP = map(analogRead(A0), 0, 1023, 0, 100);
@@ -803,8 +805,8 @@
         angle = get_angle();        
         pid_output = get_pid(abs(angle)); 
 
-        //Serial.print(pid_output);
-        //Serial.print("\t");
+        Serial.print(pid_output);
+        Serial.println("\t");
     
   
         // If roll angle is greater than max roll or less than min roll, stop motor
