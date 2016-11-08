@@ -100,7 +100,8 @@
 
 
       float kp = 55.0; // P-value
-      float kd = 1.3; // D-value
+      float td = 0.0016; // D-value
+      float bias = 0.0; // Bias value (Base output)
       float setpoint = 81.0; // Setpoint (Balance point)
       
       //#define TUNING // Uncomment if tuning panel is attached
@@ -281,11 +282,11 @@
         p_term = kp * error;  
 
         // Derivative
-        d_term = kd * ((error - last_error) / delta_t); 
+        d_term = 1/td * ((error - last_error) / delta_t); 
 
 
         // Calculate output
-        output = p_term + d_term; 
+        output = p_term + d_term + bias;
 
       
         // Limit output
@@ -882,7 +883,7 @@
           lcd.print(abs(offset));
           lcd.setCursor(10, 1);
           lcd.print("D:");
-          lcd.print(abs(kd));
+          lcd.print(abs(td));
         }
       }
       }
