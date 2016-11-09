@@ -5,7 +5,7 @@
   ///////////////////////////////////////
 
   Final year project electrical engineering @ Høyskolen i Oslo Akershus, Norway © 2016.
-  By Jon-Eivind Stranden & Nicholai Kaas Iversen.
+  By Jon-Eivind Stranden & Nicolai Kaas Iversen.
   
   Web: https://github.com/joneivind
   Contact: joneivinds@gmail.com
