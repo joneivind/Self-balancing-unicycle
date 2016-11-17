@@ -100,7 +100,7 @@
 
 
       float kp = 55.0; // P-value
-      float td = 0.0016; // D-value
+      float td = 2.0; // D-value
       float bias = 0.0; // Bias value (Base output)
       float setpoint = 81.0; // Setpoint (Balance point)
       
@@ -258,7 +258,7 @@
       
       float get_pid(float angle){
         
-        float delta_t = millis() - lastTime; // Delta time
+        float delta_t = 0.025; // Delta time
         lastTime = millis(); // Reset timer
 
         error = setpoint - angle; // Calculate error, e=SP-Y
